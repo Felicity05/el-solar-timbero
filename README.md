@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# El Solar Timbero — RSVP MVP
 
-## Getting Started
+One public RSVP experience for **October 12, 2026, 8–11:30 PM, America/New_York**, at Guantanamera, 939 8th Ave, New York, NY 10019. Free admission.
 
-First, run the development server:
+## Local development
 
-```bash
+Use Node.js 22 or newer.
+
+```sh
+npm ci
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. The project URL may be public; the service role key must never have a `NEXT_PUBLIC_` prefix. The client in `src/lib/supabase/server.ts` uses `server-only` to prevent Client Component imports and throws an explicit error naming any missing variable when called. With no database credentials, the landing page renders but submissions correctly return an error.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Database
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Apply `supabase/migrations/20260929170927_create_rsvps.sql` to the intended Supabase project. It creates only `public.rsvps`, enables RLS, revokes public access, and grants `service_role` only INSERT. There are no browser policies and no visitor accounts. Dashboard access remains available to the owner for viewing/exporting RSVPs.
 
-## Learn More
+The unique constraint is `(event_slug, phone)`. The server supplies `cuban-night-social-2026-10-12` from trusted configuration, and stores phone numbers in E.164 format. The same phone can RSVP to another event, but only once per event. Emails are normalized and are not unique. No events table is required; future event slugs must be explicitly configured on the server, not accepted from browser input.
 
-To learn more about Next.js, take a look at the following resources:
+The application never determines gift-card eligibility or generates QR codes. It records `gift_card_disclaimer_accepted` (required true, with no default), `disclaimer_version`, and the database-generated submission time. `src/lib/rsvp.ts` and the migration preserve the launch wording. If the disclosure changes, preserve the old wording in version control and use a new server-supplied version; existing records retain their original version.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Verification
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```sh
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
 
-## Deploy on Vercel
+`npm test` exercises runtime validation and runs the actual migration in embedded PostgreSQL (PGlite) to check constraints and role permissions. Browser tests run the production build against a **local test HTTP service**, not a hosted Supabase project. They cover mobile/desktop layouts, validation, success, phone duplicates, and failure/retry. A production Supabase submission and Data API permission smoke test are still required after setup.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Before browser tests, build with `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54329 npm run build` so Next.js embeds the test service URL. Public environment variables are set at build time; rebuild with the hosted URL for deployment. The test runner supplies a placeholder service role key at runtime.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+For Macs where Playwright's bundled Chromium is unsupported, use an installed Chrome:
+
+```sh
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:e2e
+```
+
+The production build uses Next.js's supported Webpack option because Turbopack's internal worker port failed in this local environment. For the same issue during development, run `npm run dev -- --webpack`. `next/font/google` needs build-time network access; fonts are served locally to visitors.
+
+## Deploy to Vercel
+
+1. Use the Next.js preset and Node.js 22+. Install from the committed lockfile.
+2. Apply the migration to the intended Supabase project.
+3. Configure `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Keep the service role key server-only. Configure preview and production deliberately; prefer an isolated database for preview testing.
+4. Set `SITE_URL` to the canonical HTTPS site URL. Without it, metadata uses Vercel's production URL, falling back to localhost only in local development.
+5. Deploy, then test one new RSVP, a repeat with the same phone in another format, invalid fields, and unchecked acknowledgment. Confirm only one row was saved.
+6. Verify a publishable/anonymous API key cannot read or insert RSVPs. Check phone usability and keyboard behavior on an actual phone/Instagram browser, and inspect the link preview before sharing.
+
+There is no custom admin UI. Review RSVPs in the Supabase dashboard. No confirmation email/SMS is sent; confirmation is on-screen and updates are on Instagram.
+
+## Architecture
+
+- `/` is a Server Component with the brand, event details, artwork, and result-screen markup.
+- `rsvp-form.tsx` is the small interactive boundary. Server-rendered content is passed as React slots; artwork, date details, and result components do not become client modules.
+- `actions.ts` is a public Server Action. It validates explicit input fields, normalizes contacts, adds the trusted disclosure version, inserts once, and returns only a status or safe field errors.
+- The browser cannot write directly to Supabase. The server-only client has a bounded request timeout. No personal details or database credentials are logged.
+- A database unique constraint detects duplicates atomically. An insert is never an upsert, so anonymous callers cannot overwrite an existing RSVP.
+- Success and duplicate views stay at `/` and appear only following server responses; personal information never enters URLs or local storage.
+
+The honeypot catches basic automated spam. It is not a rate limiter or identity verification. The reference's explicit duplicate response can reveal whether a supplied phone is on the list; it reveals no saved contact details. Before broad promotion, configure an appropriate hosting-level request limit and monitor submission failures. This release does not claim to verify phone/email ownership.
