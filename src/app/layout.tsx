@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Barlow_Condensed, Source_Sans_3 } from "next/font/google";
+import {Barlow_Condensed, Birthstone, Source_Sans_3} from "next/font/google";
 import "./globals.css";
 import type { ReactNode } from "react";
 
@@ -13,6 +13,13 @@ const sourceSans = Source_Sans_3({
 const barlowCondensed = Barlow_Condensed({
   variable: "--font-barlow-condensed",
   weight: ["700", "800"],
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const birthstone = Birthstone({
+  variable: "--font-birthstone",
+  weight: "400",
   subsets: ["latin"],
   display: "swap",
 });
@@ -41,7 +48,7 @@ export default function RootLayout({ children } : RootLayoutProps) {
   return (
     <html
       lang="en"
-      className={`${sourceSans.variable} 
+      className={`${sourceSans.variable} ${birthstone.variable}
       ${barlowCondensed.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {children}

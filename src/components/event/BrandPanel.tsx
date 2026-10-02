@@ -9,15 +9,17 @@ export default function BrandPanel() {
       mobile:hidden"
            aria-label="Cuban music and community">
       <div className="relative -rotate-2 overflow-hidden border-[7px] border-surface bg-navy
-        px-3.5 pt-7.5 text-background shadow-[2px_3px_0_#89755c25] outline outline-[#89755c55]
+        px-3.5 pt-1.5 text-background shadow-[2px_3px_0_#89755c25] outline outline-[#89755c55]
         mobile:border-4 mobile:px-1.5 mobile:pt-5.5">
-        <span aria-hidden="true" className="absolute top-23.5 right-7.5 text-[15px] text-accent-sand
+        <span aria-hidden="true" className="absolute top-51.5 left-22.5 text-[15px] text-accent-sand
+            tablet:top-40 tablet:left-16
             mobile:top-1.25 mobile:right-1.75 mobile:text-[13px]">★</span>
           {imageText.map((text, index) => (
-            <span key={index} className="block -rotate-6 pl-2.25 font-[Birthstone,sans serif] align-middle
-                    text-[32px] leading-[1.15] italic tablet:p-0
-                    tablet:text-[24px] mobile:pl-0.75 mobile:text-[20px]" lang="es">
-                {text}</span>
+            <span key={index} className="block -rotate-6 pl-2.25 font-birthstone align-middle
+                    text-[45px] leading-[1.15] tablet:p-0
+                    tablet:text-[35px] mobile:pl-0.75 mobile:text-[25px]" lang="es">
+                {text}
+            </span>
           ))}
         <Image
           className="mx-auto mt-2 -mb-3.25 h-auto w-full mobile:mt-0.5"

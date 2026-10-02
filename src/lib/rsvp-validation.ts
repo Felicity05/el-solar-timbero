@@ -3,23 +3,37 @@ import { z } from "zod";
 import { referralSources } from "./rsvp";
 
 export const rsvpSchema = z.object({
-  name: z.string().trim().min(1, "Enter your name.")
-      .max(100, "Use 100 characters or fewer.")
-      .regex(/^[^\p{Cc}]+$/u, "Enter your name without control characters."),
-  phone: z.string().trim().min(1, "Enter your phone number.")
-      .max(40, "Enter a valid phone number.")
-      .transform((value, ctx) => {
-          const phone = parsePhoneNumberFromString(value, { defaultCountry: "US", extract: false });
-          if (!phone?.isValid() || phone.ext) {
-            ctx.addIssue({ code: "custom", message: "Enter a valid phone number. Include + and the country code for numbers outside the US." });
-            return z.NEVER;
-          }
-          return phone.number;
+    name: z.string().trim()
+        .min(2, "Enter your name.")
+        .max(100, "Use 100 characters or fewer.")
+        .regex(/^[\p{L}\p{M}'’.\-\s]+$/u, "Enter a valid name.")
+        .transform(name => name.replace(/\s+/g, " ")),
+
+    phone: z.string().trim()
+        .min(1, "Enter your phone number.")
+        .max(40, "Enter a valid phone number.")
+        .transform((value, ctx) => {
+            const phone = parsePhoneNumberFromString(value, {
+                defaultCountry: "US",
+                extract: false,
+            });
+
+            if (!phone?.isValid() || phone.ext) {
+                ctx.addIssue({
+                    code: "custom",
+                    message: "Enter a valid phone number. Include + and the country code for numbers outside the US.",
+                });
+                return z.NEVER;
+            }
+            return phone.number;
         }),
-  email: z.string().trim().toLowerCase().max(254, "Use an email address under 255 characters.")
-      .email("Enter a valid email address."),
-  referralSource: z.enum(referralSources, { error: "Choose how you heard about us." }),
-  giftCardDisclaimerAccepted: z.literal(true, { error: "Please acknowledge the phone-sharing notice to RSVP." }),
+
+    email: z.string().trim().toLowerCase()
+        .max(254, "Use an email address under 255 characters.")
+        .email("Enter a valid email address."),
+
+    referralSource: z.enum(referralSources, { error: "Choose how you heard about us." }),
+    giftCardDisclaimerAccepted: z.literal(true, { error: "Please acknowledge the phone-sharing notice to RSVP." }),
 });
 
 export function validateRsvp(formData: FormData) {

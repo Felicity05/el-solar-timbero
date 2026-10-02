@@ -6,6 +6,7 @@
   --color-primary: #962719;
   --color-primary-hover: #782219;
   --color-navy: #0c303b;
+  --color-paper: #f3e3bd;
   --color-foreground: #24211d;
   --color-muted: #64584b;
   --color-border: #89755c;
@@ -17,6 +18,7 @@
 @theme inline {
   --font-sans: var(--font-source-sans), Arial, sans-serif;
   --font-heading: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
+  --font-birthstone: var(--font-birthstone), cursive;
 }
 
 /* Shared responsive variants preserve the approved layout breakpoints. */
@@ -102,4 +104,14 @@
     .print-ink-text { background: none; -webkit-text-fill-color: currentColor; }
     .print-brush { border: 1px solid ButtonText; }
   }
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--color-foreground);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-surface) inset;
+  box-shadow: 0 0 0 1000px var(--color-surface) inset;
+  caret-color: var(--color-foreground);
 }

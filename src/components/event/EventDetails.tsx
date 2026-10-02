@@ -13,12 +13,11 @@ const descriptionClassName =
 
 export default function EventDetails({ variant = "hero" }: EventDetailsProps) {
   const placementClassName = variant === "hero"
-    ? "tablet:flex-wrap tablet:gap-x-0 tablet:gap-y-[13px]"
+    ? "tablet:flex-wrap tablet:gap-x-0 tablet:gap-y-[13px] tablet:flex-col tablet:items-start"
     : "justify-center mobile:-mx-[5px]";
 
   return (
-    <div className={`mt-5.5 flex items-center text-left text-navy mobile:mt-4.25 mobile:justify-center ${placementClassName} 
-                    tablet:flex-col tablet:items-start`}>
+    <div className={`mt-5.5 flex items-center text-left text-navy mobile:mt-4.25 mobile:justify-center ${placementClassName}`}>
       <div className={`event-date ${itemClassName} border-r-2 border-border pl-0 mobile:pl-0 tablet:border-none`}>
         <svg aria-hidden="true" viewBox="0 0 24 24" className={iconClassName}>
           <rect x="3" y="5" width="18" height="16" rx="1" />
