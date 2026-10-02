@@ -18,12 +18,15 @@ const barlowCondensed = Barlow_Condensed({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")),
+  metadataBase: new URL(process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ?
+      `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")),
   title: "Cuban Night Social · October 12 | El Solar Timbero",
-  description: "RSVP for a night of timba, son, and Cuban dance at Guantanamera, NYC. Monday, October 12, 2026, 8–11:30 PM. Free admission. Música, baile, comunidad.",
+  description: "RSVP for a night of timba, son, and Cuban dance at Guantanamera, NYC. " +
+      "Monday, October 12, 2026, 8–11:30 PM. Free admission. Música, baile, comunidad.",
   openGraph: {
     title: "Cuban Night Social · October 12",
-    description: "El Solar Timbero at Guantanamera · 8–11:30 PM · NYC · Free admission. RSVP and join us on the dance floor.",
+    description: "El Solar Timbero at Guantanamera · 8–11:30 PM · NYC · Free admission. " +
+        "RSVP and join us on the dance floor.",
     type: "website",
     locale: "en_US",
   },
@@ -38,9 +41,11 @@ export default function RootLayout({ children } : RootLayoutProps) {
   return (
     <html
       lang="en"
-      className={`${sourceSans.variable} ${barlowCondensed.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+      className={`${sourceSans.variable} 
+      ${barlowCondensed.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col">
+        {children}
+      </body>
     </html>
   );
 }

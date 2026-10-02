@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180"><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".75" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" opacity=".085" filter="url(#grain)"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="384" height="384" viewBox="0 0 384 384">
+  <filter id="fiber" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency=".63" numOctaves="3" seed="14" stitchTiles="stitch"/>
+    <feColorMatrix values="0 0 0 0 .38  0 0 0 0 .22  0 0 0 0 .08  0 0 0 .1 0"/>
+  </filter>
+  <filter id="mottle" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency=".042 .071" numOctaves="3" seed="7" stitchTiles="stitch"/>
+    <feColorMatrix values="0 0 0 0 .46  0 0 0 0 .28  0 0 0 0 .10  0 0 0 2.4 -1.1"/>
+  </filter>
+  <path d="M0 0h384v384H0z" filter="url(#fiber)"/>
+  <path d="M0 0h384v384H0z" filter="url(#mottle)" opacity=".06"/>
+</svg>

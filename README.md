@@ -58,11 +58,27 @@ There is no custom admin UI. Review RSVPs in the Supabase dashboard. No confirma
 
 ## Architecture
 
-- `/` is a Server Component with the brand, event details, artwork, and result-screen markup.
-- `rsvp-form.tsx` is the small interactive boundary. Server-rendered content is passed as React slots; artwork, date details, and result components do not become client modules.
+- `src/app/page.tsx` is the Server Component that composes the page. Reusable UI lives in `src/components`, with PascalCase filenames matching component names. Next.js route files retain their required lowercase names.
+- `RsvpExperience.tsx` is the client entry point for submission state, pending state, result switching, and focus management. Server-rendered hero, brand panel, and results are passed as React slots.
+- `RsvpForm.tsx` owns the controlled input values and field markup. It is imported within that client boundary. It receives the existing action, response, and error-summary ref; it does not access the database.
 - `actions.ts` is a public Server Action. It validates explicit input fields, normalizes contacts, adds the trusted disclosure version, inserts once, and returns only a status or safe field errors.
 - The browser cannot write directly to Supabase. The server-only client has a bounded request timeout. No personal details or database credentials are logged.
 - A database unique constraint detects duplicates atomically. An insert is never an upsert, so anonymous callers cannot overwrite an existing RSVP.
 - Success and duplicate views stay at `/` and appear only following server responses; personal information never enters URLs or local storage.
+
+### Where to make UI changes
+
+| Area | Component files in `src/components` |
+| --- | --- |
+| Header and footer | `layout/SiteHeader.tsx`, `layout/SiteFooter.tsx` |
+| Hero artwork and title | `event/EventHero.tsx` |
+| Date, time, and venue shared by all views | `event/EventDetails.tsx` |
+| Conga artwork and cultural text | `event/BrandPanel.tsx` |
+| Form fields and error markup | `rsvp/RsvpForm.tsx` |
+| Submission flow and focus | `rsvp/RsvpExperience.tsx` |
+| Success and duplicate presentation | `rsvp/RsvpResult.tsx` |
+| Repeated Instagram CTA | `shared/InstagramLink.tsx` |
+
+Component styling lives in Tailwind classes alongside its markup, including responsive and interaction states. `src/app/globals.css` contains Tailwind setup, shared theme tokens/responsive variants, base accessibility styles, and the reusable print treatments: `paper-surface`, `print-ink`, `print-ink-text`, and `print-brush`. The brush treatment masks only its background pseudo-element, preserving text, hit areas, and focus outlines. `--print-color` sets its ink color. Three small SVGs provide paper grain, ink wear, and the brush edge; large artwork stays in responsive Next.js Images. Only the hero-specific scenic fade remains in `EventHero.module.css`. Event details retain `event-date`, `event-time`, and `event-location` names; the `variant` prop controls hero/result layout without parent selectors reaching into the component. Keep authoritative event/disclaimer values in the existing server flow, not in component props submitted by the browser.
 
 The honeypot catches basic automated spam. It is not a rate limiter or identity verification. The reference's explicit duplicate response can reveal whether a supplied phone is on the list; it reveals no saved contact details. Before broad promotion, configure an appropriate hosting-level request limit and monitor submission failures. This release does not claim to verify phone/email ownership.

@@ -1,0 +1,15 @@
+/* Multiple print layers are clearer here than inside a long arbitrary utility. */
+.scene::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-background) 90%, transparent) 0%, color-mix(in srgb, var(--color-background) 70%, transparent) 34%, transparent 62%),
+    linear-gradient(0deg, var(--color-background) 0%, transparent 18%);
+}
+
+@media (max-width: 640px) {
+  .scene::after {
+    background: linear-gradient(0deg, var(--color-background) 0%, transparent 38%);
+  }
+}

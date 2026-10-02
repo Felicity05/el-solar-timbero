@@ -1,1 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="180" height="90" viewBox="0 0 180 90"><g fill="#f3e6cc" opacity=".25"><path d="m3 8 5 1-1 1H2zm32 13 6-1-2 2-4 1zm61-14 8 1-4 1-4-1zm40 26 4-1 2 2-5 1zM64 71h6l-2 2h-5zM13 56l4-2 1 1-2 3zm133 26 10-1-4 2h-5zM80 45l3-2 1 2-2 1zm80-25 7-1-4 2z"/><circle cx="22" cy="29" r=".8"/><circle cx="111" cy="57" r="1"/><circle cx="56" cy="12" r=".8"/><circle cx="42" cy="54" r=".6"/><circle cx="128" cy="8" r="1"/><circle cx="173" cy="69" r=".7"/><circle cx="95" cy="84" r=".7"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240">
+  <filter id="wear" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency=".47 .62" numOctaves="3" seed="23" stitchTiles="stitch"/>
+    <feColorMatrix values="0 0 0 0 .98  0 0 0 0 .91  0 0 0 0 .76  0 0 0 8 -5.2"/>
+  </filter>
+  <path d="M0 0h320v240H0z" filter="url(#wear)" opacity=".45"/>
+  <g stroke="#f2dfb9" stroke-width=".45" opacity=".32" fill="none">
+    <path d="m18 81 3-1m62 53 1 4m44-100 5-2m39 68 2-5m68 95 3-1m-189 14 6-2m243-154-2 4m-164 160 3 1"/>
+  </g>
+</svg>
