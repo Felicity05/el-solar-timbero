@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Code and database checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check types
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Test validation, database constraints, and rate limits
+        run: npm test
+      - name: Check production dependencies for high or critical advisories
+        run: npm audit --omit=dev --audit-level=high
+
+  browser:
+    name: Production build and browser checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      # CI never uses hosted Supabase or production credentials.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54329
+      SUPABASE_SERVICE_ROLE_KEY: test-only-placeholder-key
+      SITE_URL: http://127.0.0.1:3100
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install Chromium and system libraries
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Build the production app against the local test service
+        run: npm run build
+      - name: Test mobile and desktop RSVP flows
+        run: npm run test:e2e
+      - name: Save browser failure traces and screenshots
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-failures
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  ci:
+    # Require this stable check name in the main branch protection rule.
+    name: ci
+    if: ${{ always() }}
+    needs: [checks, browser]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - name: Require every validation job to pass
+        env:
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+        run: |
+          test "$CHECKS_RESULT" = "success"
+          test "$BROWSER_RESULT" = "success"
