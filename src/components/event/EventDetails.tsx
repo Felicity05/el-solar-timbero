@@ -1,5 +1,6 @@
 type EventDetailsProps = {
   variant?: "hero" | "result";
+  fullDate?: boolean;
 };
 
 const itemClassName =
@@ -11,20 +12,20 @@ const titleClassName =
 const descriptionClassName =
   "mt-1 block font-sans text-[12px] leading-[1.35] normal-case mobile:text-[10px]";
 
-export default function EventDetails({ variant = "hero" }: EventDetailsProps) {
+export default function EventDetails({ variant = "hero", fullDate = false }: EventDetailsProps) {
   const placementClassName = variant === "hero"
     ? "tablet:flex-wrap tablet:gap-x-0 tablet:gap-y-[13px] tablet:flex-col tablet:items-start"
     : "justify-center mobile:-mx-[5px]";
 
   return (
-    <div className={`mt-5.5 flex items-center text-left text-navy mobile:mt-4.25 mobile:justify-center ${placementClassName}`}>
+    <div className={`mt-5.5 flex items-center text-left text-navy mobile:mt-4.25 mobile:justify-center ${placementClassName} ${fullDate ? "mobile:flex-wrap mobile:gap-y-4" : ""}`}>
       <div className={`event-date ${itemClassName} border-r-2 border-border pl-0 mobile:pl-0 tablet:border-none`}>
         <svg aria-hidden="true" viewBox="0 0 24 24" className={iconClassName}>
           <rect x="3" y="5" width="18" height="16" rx="1" />
           <path d="M7 2v6m10-6v6M3 11h18M7 15h3m4 0h3M7 18h3" />
         </svg>
-        <p className={titleClassName}>Monday, Oct 12
-          <time className="block text-[22px] mobile:whitespace-nowrap mobile:text-[16px]" dateTime="2026-10-12">8–11:30 PM</time>
+        <p className={titleClassName}>{fullDate ? <time dateTime="2026-10-12">Monday, Oct 12, 2026</time> : "Monday, Oct 12"}
+          {fullDate ? <span className="mt-1 block text-[19px] mobile:text-[16px]">8:00 PM – 11:30 PM</span> : <time className="block text-[22px] mobile:whitespace-nowrap mobile:text-[16px]" dateTime="2026-10-12">8–11:30 PM</time>}
         </p>
       </div>
       <div className={`event-location ${itemClassName} border-r-2 border-border h-[45.8px] tablet:border-none tablet:pl-0` }>

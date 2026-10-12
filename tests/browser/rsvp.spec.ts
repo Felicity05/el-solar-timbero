@@ -18,6 +18,8 @@ async function fillRsvp(page: Page, email = "dancer@example.com", phone = "(201)
   await page.getByRole("checkbox").check();
 }
 
+// Preserve the open-event scenarios for reuse when RSVPs reopen.
+test.describe.skip("open RSVP flow (restore when RSVP_OPEN is true)", () => {
 test.beforeEach(async ({ request }) => { await request.post("http://127.0.0.1:54329/reset"); });
 
 test("landing page has event information, accessible inputs, and no horizontal overflow", async ({ page }, testInfo) => {
@@ -111,4 +113,24 @@ test("limiter outage blocks submission and preserves the form", async ({ page, r
   await expect(page.getByRole("main").getByRole("alert")).toContainText("We couldn’t connect to save your RSVP");
   await expect(page.getByLabel("Phone number", { exact: true })).toHaveValue("(201) 555-0123");
   await expect(page.getByRole("checkbox")).toBeChecked();
+});
+});
+
+test("closed event shows all details without any form or validation UI", async ({ page }, testInfo) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("RSVPs ARENOW CLOSED");
+  await expect(page.getByText("¡Nos vemos esta noche en El Solar!", { exact: true })).toBeVisible();
+  await expect(page.getByText("Join us tonight at Guantanamera for Cuban music, dance, and community.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "CUBAN NIGHT SOCIAL" })).toBeVisible();
+  await expect(page.locator("time")).toHaveText("Monday, Oct 12, 2026");
+  await expect(page.locator("time")).toHaveAttribute("datetime", "2026-10-12");
+  await expect(page.getByText("8:00 PM – 11:30 PM", { exact: true })).toBeVisible();
+  await expect(page.getByText("Guantanamera", { exact: false }).last()).toBeVisible();
+  await expect(page.getByText("939 8th Ave", { exact: false })).toBeVisible();
+  await expect(page.getByText("New York, NY 10019", { exact: false })).toBeVisible();
+  await expect(page.getByText("Stay tuned for the next one!", { exact: true })).toBeVisible();
+  await expect(page.getByText("Follow @elsolartimbero on Instagram for upcoming events.")).toBeVisible();
+  await expect(page.locator("form, input, select, textarea, button")).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
+  await screenshot(page, `test-results/${testInfo.project.name}-closed.png`);
 });
