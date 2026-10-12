@@ -1,5 +1,6 @@
 import Image from "next/image";
 import EventDetails from "@/components/event/EventDetails";
+import InstagramLink from "@/components/shared/InstagramLink";
 
 type RsvpResultProps = {
   kind: "success" | "duplicate" | "closed";
