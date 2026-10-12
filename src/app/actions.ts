@@ -5,8 +5,12 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { clientIp, rateLimitKey } from "@/lib/rsvp-rate-limit";
 import { processRsvp } from "@/lib/rsvp-submit";
 import type { RsvpState } from "@/lib/rsvp";
+import { RSVP_OPEN } from "@/lib/rsvp-config";
 
 export async function submitRsvp(_previous: RsvpState, formData: FormData): Promise<RsvpState> {
+  if (!RSVP_OPEN) {
+    return { status: "error", message: "RSVPs are now closed. ¡Nos vemos esta noche en El Solar!" };
+  }
   const ip = clientIp(await headers(), {
     vercel: process.env.VERCEL,
     trustedHeader: process.env.RSVP_TRUSTED_IP_HEADER,

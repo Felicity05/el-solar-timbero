@@ -28,12 +28,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ?
       `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")),
   title: "Cuban Night Social · October 12 | El Solar Timbero",
-  description: "RSVP for a night of timba, son, and Cuban dance at Guantanamera, NYC. " +
+  description: "RSVPs are now closed. Join us tonight for timba, son, and Cuban dance at Guantanamera, NYC. " +
       "Monday, October 12, 2026, 8–11:30 PM. Free admission. Música, baile, comunidad.",
   openGraph: {
     title: "Cuban Night Social · October 12",
     description: "El Solar Timbero at Guantanamera · 8–11:30 PM · NYC · Free admission. " +
-        "RSVP and join us on the dance floor.",
+        "RSVPs are now closed. ¡Nos vemos esta noche en El Solar!",
     type: "website",
     locale: "en_US",
   },

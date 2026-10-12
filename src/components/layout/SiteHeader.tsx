@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { RSVP_OPEN } from "@/lib/rsvp-config";
 
 export default function SiteHeader() {
   return (
@@ -19,7 +20,7 @@ export default function SiteHeader() {
       </p>
         <div className="flex shrink-0 items-center gap-4 mobile:gap-2">
             <a href="#rsvp-title" className="print-brush inline-flex min-h-11 items-center px-7 py-2 font-heading text-[23px] uppercase text-surface hover:[--print-color:var(--color-primary-hover)] mobile:hidden">
-                RSVP
+                {RSVP_OPEN ? "RSVP" : "Tonight’s event"}
             </a>
             <a className="group inline-flex min-h-12 items-center justify-center gap-3 text-left text-[14px] leading-[1.3]"
                aria-label="Follow El Solar Timbero on Instagram" href="https://www.instagram.com/el_solar_timbero/" target="_blank" rel="noopener noreferrer">

@@ -4,6 +4,8 @@ import SiteFooter from "@/components/layout/SiteFooter";
 import SiteHeader from "@/components/layout/SiteHeader";
 import RsvpExperience from "@/components/rsvp/RsvpExperience";
 import RsvpResult from "@/components/rsvp/RsvpResult";
+import RsvpClosed from "@/components/rsvp/RsvpClosed";
+import { RSVP_OPEN } from "@/lib/rsvp-config";
 
 export default function Home() {
   return (
@@ -12,12 +14,12 @@ export default function Home() {
       <a href="#main" className="absolute -top-25 left-4 z-30 bg-surface px-5 py-3">Skip to content</a>
       <SiteHeader />
       <main id="main">
-        <RsvpExperience
+        {RSVP_OPEN ? <RsvpExperience
           hero={<EventHero />}
           aside={<BrandPanel />}
           success={<RsvpResult kind="success" />}
           duplicate={<RsvpResult kind="duplicate" />}
-        />
+        /> : <RsvpClosed />}
       </main>
       <SiteFooter />
     </div>
