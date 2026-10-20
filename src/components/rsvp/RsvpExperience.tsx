@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState, useEffect, useRef, type ReactNode } from "react";
-import { submitRsvp } from "@/app/actions";
 import RsvpForm from "./RsvpForm";
 import { type RsvpState } from "@/lib/rsvp";
 
 const initialState: RsvpState = { status: "idle" };
 
 type RsvpExperienceProps = {
+  submitAction: (previous: RsvpState, data: FormData) => Promise<RsvpState>;
+  disclaimerVersion: string | null;
   hero: ReactNode;
   aside: ReactNode;
   success: ReactNode;
@@ -15,8 +16,8 @@ type RsvpExperienceProps = {
 };
 
 // Server-rendered sections arrive as slots; only submission state needs client JavaScript.
-export default function RsvpExperience({ hero, aside, success, duplicate }: RsvpExperienceProps) {
-  const [state, formAction, pending] = useActionState(submitRsvp, initialState);
+export default function RsvpExperience({ hero, aside, success, duplicate, disclaimerVersion, submitAction }: RsvpExperienceProps) {
+  const [state, formAction, pending] = useActionState(submitAction, initialState);
   const container = useRef<HTMLDivElement>(null);
   const errorSummary = useRef<HTMLDivElement>(null);
 
@@ -42,6 +43,7 @@ export default function RsvpExperience({ hero, aside, success, duplicate }: Rsvp
         mobile:block mobile:px-5 mobile:pt-5 mobile:pb-7.5 narrow:px-4">
 
         <RsvpForm
+          disclaimerVersion={disclaimerVersion}
           state={state}
           formAction={formAction}
           pending={pending}

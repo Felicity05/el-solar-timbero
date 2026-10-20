@@ -1,0 +1,2 @@
+-- Intentionally empty: never auto-seed local test events in another environment.
+-- See seed.local.sql and docs/rsvp-submission.md for explicit LOCAL-only seeding.

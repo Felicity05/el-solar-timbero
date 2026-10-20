@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+.idea
 
 # debug
 npm-debug.log*
@@ -44,3 +45,8 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /supabase/.temp/
+/supabase/.branches/
+/supabase/snippets/
+
+#terminal theme
+/powerlevel10k/

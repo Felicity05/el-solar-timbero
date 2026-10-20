@@ -18,7 +18,7 @@ flowchart LR
 
 GitHub Actions provides continuous integration (CI): it checks changes before release. Vercel's Git integration provides continuous deployment (CD): it builds the merged commit and publishes it. CI and preview builds can run at the same time. Vercel does **not** automatically wait for this workflow before deploying a push to `main`; the required-check branch protection rule is the production gate. A failed Vercel build does not replace the existing successful site. The CI build is a test artifact, not the artifact deployed to production; Vercel rebuilds with production settings.
 
-The workflow requires no GitHub secrets. It runs on pull requests to `main`, pushes to `main`, merge-queue events, and manual requests. Its `ci` job passes only when both validation jobs pass. Those jobs run types, lint, validation/database tests, a production-dependency vulnerability check, a production build, and Chromium browser tests at mobile and desktop sizes. Failed browser checks upload screenshots/traces for seven days. New runs cancel obsolete runs on the same branch. Node 22, the committed npm lockfile, a fixed Ubuntu runner version, read-only repository permissions, and commit-pinned actions make the setup consistent and limit workflow access. Dependabot proposes weekly action/dependency updates; review and test them before merging.
+The workflow requires no GitHub secrets. It runs on pull requests to `main`, pushes to `main`, merge-queue events, and manual requests. Its `ci` job passes only when both validation jobs pass. Those jobs run types, lint, validation/database tests, a production-dependency vulnerability check, a production build, and Chromium browser tests at mobile and desktop sizes. Failed browser checks upload screenshots/traces for seven days. New runs cancel obsolete runs on the same branch. Node 24.x LTS (selected through `.nvmrc` in both jobs), the committed npm lockfile, a fixed Ubuntu runner version, read-only repository permissions, and commit-pinned actions make the setup consistent and limit workflow access. Dependabot proposes weekly action/dependency updates; review and test them before merging.
 
 Sources: [Vercel Git integration](https://vercel.com/docs/git/vercel-for-github), [GitHub protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches).
 
@@ -34,7 +34,7 @@ git commit -m "Add RSVP protection and Vercel CI pipeline"
 git push -u origin launch/vercel-ci
 ```
 
-Open a pull request from `launch/vercel-ci` to `main` at [the repository](https://github.com/Felicity05/el-solar-timbero). GitHub will discover `.github/workflows/ci.yml` and start CI on the pull request. Review the staged file list before committing; local `.env.local` is ignored and must remain untracked. All hosted secrets belong in Vercel, not this commit.
+Open a pull request from `launch/vercel-ci` to `main` at [the repository](https://github.com/Felicity05/el-solar-timbero). GitHub will discover `.github/workflows/ci.yml` and start CI on the pull request. Review the staged file list before committing; local `.env.development.local` is ignored and must remain untracked. All hosted secrets belong in Vercel, not this commit.
 
 **What happens:** GitHub now has a reproducible copy of your code and migration files. The PR records which changes will be released. CI tests them without writing to your hosted Supabase database.
 
@@ -67,12 +67,12 @@ Use these settings:
 | Framework | Next.js |
 | Root directory | Repository root |
 | Production branch | `main` |
-| Node.js | 22.x |
+| Node.js | 24.x |
 | Install command | `npm ci` |
 | Build command | `npm run build` |
 | Output directory | Leave the Next.js default |
 
-The Node version is also set in `package.json`; install/build commands are committed in `vercel.json`. The build uses the project's existing Webpack option. Allow Vercel to use its normal Next.js runtime; no static export or custom output directory is needed. The server action needs a running server function.
+The Node version is pinned to `24.x` in `package.json` and `24` in `.nvmrc`; both GitHub Actions jobs read `.nvmrc`. Vercel uses `engines.node` to select Node 24.x even when its dashboard has an older selection. Install/build commands are committed in `vercel.json`, which has no separate Node runtime pin. Dashboard settings and existing deployments are not changed by this repository update. The build uses the project's existing Webpack option. Allow Vercel to use its normal Next.js runtime; no static export or custom output directory is needed. The server action needs a running server function.
 
 **What happens:** Vercel reads the repository, installs the exact locked dependencies, and compiles Next.js. It serves static assets through its delivery network and runs RSVP actions on the server. Each subsequent branch push can create a preview, and `main` is the production source.
 

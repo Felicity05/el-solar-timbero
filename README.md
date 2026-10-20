@@ -4,23 +4,27 @@ One public RSVP experience for **October 12, 2026, 8–11:30 PM, America/New_Yor
 
 ## Local development
 
-Use Node.js 22 or newer.
+Use Node.js 24.x LTS (`nvm use` reads the committed `.nvmrc`). CI uses the same file; do not switch this project to Node 26 Current.
 
 ```sh
 npm ci
-cp .env.example .env.local
+cp .env.example .env.development.local
 npm run dev
 ```
 
-Set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. The project URL may be public; the service role key must never have a `NEXT_PUBLIC_` prefix. The client in `src/lib/supabase/server.ts` uses `server-only` to prevent Client Component imports and throws an explicit error naming any missing variable when called. With no database credentials, the landing page renders but submissions correctly return an error.
+Set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env.development.local`. The project URL may be public; the service role key must never have a `NEXT_PUBLIC_` prefix. The client in `src/lib/supabase/server.ts` uses `server-only` to prevent Client Component imports and throws an explicit error naming any missing variable when called. With no database credentials, the landing page renders but submissions correctly return an error.
 
 ## Database
 
-Apply the migrations in `supabase/migrations/` in timestamp order to the intended Supabase project, including `20261002202858_add_rsvp_rate_limiting.sql`, before deploying the app. The initial migration creates `public.rsvps`, enables RLS, revokes public access, and grants `service_role` only INSERT on RSVPs. There are no browser policies and no visitor accounts. Dashboard access remains available to the owner for viewing/exporting RSVPs.
+The normalized model is `contacts` + `events` + `rsvps`. Contacts are unique by normalized phone; RSVPs are unique by contact/event and preserve submitted name/email/phone snapshots. Email is not unique. Legacy columns and event/phone uniqueness remain during the rollback window.
 
-The unique constraint is `(event_slug, phone)`. The server supplies `cuban-night-social-2026-10-12` from trusted configuration, and stores phone numbers in E.164 format. The same phone can RSVP to another event, but only once per event. Emails are normalized and are not unique. No events table is required; future event slugs must be explicitly configured on the server, not accepted from browser input.
+Direct table access is revoked from browser roles and service_role. The server calls the narrowly scoped `submit_normalized_rsvp` RPC for atomic event validation, contact resolution, RSVP insertion and profile update. A separate restricted read RPC supplies current event details. Promotion acknowledgment is required only when that event has a supported disclosure version; other RSVPs store null/null.
 
-The application never determines gift-card eligibility or generates QR codes. It records `gift_card_disclaimer_accepted` (required true, with no default), `disclaimer_version`, and the database-generated submission time. `src/lib/rsvp.ts` and the migration preserve the launch wording. If the disclosure changes, preserve the old wording in version control and use a new server-supplied version; existing records retain their original version.
+Events are discovered dynamically from the database: published, RSVP-open and future events appear in start-time order. The homepage defaults to the next event and lists other available occurrences for selection. No `RSVP_EVENT_SLUG` configuration is used. Optional `RSVP_ENABLED=false` is an emergency global stop; otherwise database state controls availability. Unsupported disclosure versions are not offered, and database failures show a separate availability error. The transactional RPC independently rechecks eligibility at submission. The service key must remain server-only. Optional private `SUPABASE_URL` overrides the build-inlined public URL for local/runtime server configuration.
+
+See [the schema](docs/database.md) and [the implementation/local-testing guide](docs/rsvp-submission.md). The normalization migration has been applied by the owner; the submission and discovery RPC migrations were tested only locally. Do not deploy this app against a database missing the new RPCs. No remote migration or deployment is performed by these changes.
+
+For authentication failures, missing RPCs, transport errors and malformed responses, see [RSVP diagnostics](docs/rsvp-diagnostics.md). Error pages include a reference ID for the matching server log. Optional `RSVP_DEBUG=true` enables safe RPC timing logs.
 
 ## Verification
 
@@ -49,8 +53,8 @@ The production build uses Next.js's supported Webpack option because Turbopack's
 
 See [the deployment walkthrough](docs/deployment.md) for GitHub Actions, protecting `main`, Vercel settings, `elsolartimbero.com` DNS, launch checks, and rollback. GitHub Actions runs validation; Vercel's Git integration deploys production after a checked PR is merged into protected `main`. Set the required `ci` check in GitHub; the workflow alone does not block Vercel deployments.
 
-1. Use the Next.js preset and Node.js 22.x (also declared in `package.json` and `.nvmrc`). Install from the committed lockfile using `npm ci`.
-2. Apply both migrations to the intended Supabase project before deploying the updated application. Submissions are blocked if the rate-limit RPC is unavailable.
+1. Use the Next.js preset and Node.js 24.x LTS (also declared in `package.json` and `.nvmrc`). Install from the committed lockfile using `npm ci`.
+2. Review and manually apply all required migrations, including the normalized submission RPC migration, before deploying the updated application. Submissions are blocked if the rate-limit RPC is unavailable.
 3. Configure `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Keep the service role key server-only. Configure preview and production deliberately; prefer an isolated database for preview testing.
 4. Set `SITE_URL` to the canonical HTTPS site URL. Without it, metadata uses Vercel's production URL, falling back to localhost only in local development.
 5. Deploy, then test one new RSVP, a repeat with the same phone in another format, invalid fields, and unchecked acknowledgment. Confirm only one row was saved.
@@ -63,9 +67,9 @@ There is no custom admin UI. Review RSVPs in the Supabase dashboard. No confirma
 - `src/app/page.tsx` is the Server Component that composes the page. Reusable UI lives in `src/components`, with PascalCase filenames matching component names. Next.js route files retain their required lowercase names.
 - `RsvpExperience.tsx` is the client entry point for submission state, pending state, result switching, and focus management. Server-rendered hero, brand panel, and results are passed as React slots.
 - `RsvpForm.tsx` owns the controlled input values and field markup. It is imported within that client boundary. It receives the existing action, response, and error-summary ref; it does not access the database.
-- `actions.ts` is a public Server Action. It validates explicit input fields, normalizes contacts, adds the trusted disclosure version, inserts once, and returns only a status or safe field errors.
+- `actions.ts` is a public Server Action. It validates explicit input fields, normalizes contacts, resolves the configured event and applicable disclosure, calls one transactional RSVP RPC, and returns only a status or safe field errors.
 - The browser cannot write directly to Supabase. The server-only client has a bounded request timeout. No personal details or database credentials are logged.
-- A database unique constraint detects duplicates atomically. An insert is never an upsert, so anonymous callers cannot overwrite an existing RSVP.
+- The RPC locks the event/contact and uses database uniqueness to prevent duplicate RSVPs. A duplicate changes neither the contact profile nor the historical registration.
 - Success and duplicate views stay at `/` and appear only following server responses; personal information never enters URLs or local storage.
 
 ### Where to make UI changes

@@ -17,11 +17,11 @@ test("the server action rejects valid and forged submissions before request or d
      }]) {
        const data = new FormData();
        for (const [key, value] of Object.entries(fields)) data.set(key, value);
-       const state = await submitRsvp({ status: 'idle' }, data);
+       const state = await submitRsvp('forged-event', { status: 'idle' }, data);
        assert.equal(state.status, 'error');
        assert.match(state.message, /RSVPs are now closed/);
        assert.equal(state.errors, undefined);
      }`,
-  ], { encoding: "utf8", env: { ...process.env, NEXT_PUBLIC_SUPABASE_URL: "", SUPABASE_SERVICE_ROLE_KEY: "" } });
+  ], { encoding: "utf8", env: { ...process.env, RSVP_ENABLED: "false", NEXT_PUBLIC_SUPABASE_URL: "", SUPABASE_SERVICE_ROLE_KEY: "" } });
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });

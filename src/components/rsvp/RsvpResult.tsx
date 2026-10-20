@@ -1,72 +1,77 @@
 import Image from "next/image";
+import type { RsvpEvent } from "@/lib/rsvp-event";
 import EventDetails from "@/components/event/EventDetails";
 import InstagramLink from "@/components/shared/InstagramLink";
+import Link from "next/link";
 
 type RsvpResultProps = {
+  event: RsvpEvent;
   kind: "success" | "duplicate" | "closed";
 };
 
-export default function RsvpResult({ kind }: RsvpResultProps) {
+export default function RsvpResult({ kind, event }: RsvpResultProps) {
   const success = kind === "success";
   const closed = kind === "closed";
   return (
-    <section className={`relative isolate min-h-[930px] overflow-hidden px-[25px] pt-[30px] text-center
-      mobile:min-h-[900px] mobile:px-[22px] mobile:pt-[35px] ${closed ? "pb-[350px] mobile:pb-[260px]" : "pb-[220px] mobile:pb-[170px]"}`} aria-labelledby={closed ? "rsvp-title" : "result-title"}>
+    <section className={`relative isolate min-h-232.5 overflow-hidden px-6.25 pt-7.5 text-center
+      mobile:min-h-225 mobile:px-5.5 mobile:pt-8.75 ${closed ? "pb-87.5 mobile:pb-65" : "pb-55 mobile:pb-42.5"}`}
+             aria-labelledby={closed ? "rsvp-title" : "result-title"}>
       <Image
-        className="pointer-events-none absolute top-0 left-[-45px] z-1 h-auto w-[180px] opacity-95
-          mobile:-left-[57px] mobile:w-[110px]"
+        className="pointer-events-none absolute top-0 -left-11.25 z-1 h-auto w-45 opacity-95
+          mobile:-left-14.25 mobile:w-27.5"
         src="/artwork/palm-leaves-left.png"
         alt=""
         width={220}
         height={330}
         sizes="180px"
       />
-      <Image
-        className="pointer-events-none absolute top-0 right-[-45px] z-1 h-auto w-[180px] opacity-95 mobile:w-[110px]"
-        src="/artwork/palm-leaves-right.png"
-        alt=""
-        width={220}
-        height={330}
-        sizes="180px"
+      <Image className="pointer-events-none absolute top-0 -right-11.25 z-1 h-auto w-45 opacity-95 mobile:w-27.5"
+        src="/artwork/palm-leaves-right.png" alt="" width={220} height={330} sizes="180px"
       />
-      <div className="relative z-2 mx-auto max-w-[650px]">
-        <p className="mb-[14px] font-heading text-[35px] leading-[1.3] tracking-[.2em] text-primary" aria-hidden="true">― ★ ―</p>
+      <div className="relative z-2 mx-auto max-w-162.5">
+        <p className="mb-3.5 font-heading text-[35px] leading-[1.3] tracking-[.2em] text-primary" aria-hidden="true">― ★ ―</p>
         <h1
           id={closed ? "rsvp-title" : "result-title"}
           tabIndex={-1}
           className="font-heading uppercase text-navy text-[clamp(52px,7.5vw,88px)] leading-[.98] font-extrabold
-            tracking-[-.025em] focus:outline-none mobile:text-[clamp(45px,12.7vw,75px)]"
+            tracking-tight focus:outline-none mobile:text-[clamp(45px,12.7vw,75px)]"
           lang={success ? "es" : "en"}
         >
-            {closed ? <><span className="print-ink-text text-navy">RSVPs ARE</span><br /><span className="print-ink-text text-primary">NOW CLOSED</span></> : success ? <><span className="print-ink-text text-navy">¡Nos vemos</span><br /><span className="print-ink-text text-primary">en el Solar!</span></>
+            {closed ? <><span className="print-ink-text text-navy">RSVPs ARE</span><br /><span className="print-ink-text text-primary">NOW CLOSED</span></> : success ?
+                <><span className="print-ink-text text-navy">¡Nos vemos</span><br /><span className="print-ink-text text-primary">en el Solar!</span></>
                 : <><span className="print-ink-text text-navy">You’re already</span><br /><span className="print-ink-text text-primary">on the list!</span></>}
         </h1>
-        <p lang={closed ? "es" : undefined} className="mx-auto mt-[18px] max-w-[540px] font-[Georgia,serif] text-[25px] leading-[1.35] text-navy mobile:text-[21px]">{closed ? "¡Nos vemos esta noche en El Solar!" : success ? "Your RSVP has been confirmed." : "Looks like this phone number has already RSVP’d for this event."}</p>
+        <p lang={closed ? "es" : undefined} className="mx-auto mt-4.5 max-w-135 font-[Georgia,serif] text-[25px] leading-[1.35] text-navy mobile:text-[21px]">
+            {closed ? "¡Nos vemos esta noche en El Solar!" : success ? "Your RSVP has been confirmed." : "Looks like this phone number has already RSVP’d for this event."}
+        </p>
         <p className="my-3 font-heading text-[23px] leading-[1.3] tracking-[.2em] text-primary" aria-hidden="true">― ★ ―</p>
-        {closed ? <p className="mx-auto max-w-[460px] text-[18px] leading-[1.4] mobile:text-[16px]">Join us tonight at Guantanamera for Cuban music, dance, and community.</p> : success ? <p className="mx-auto max-w-[460px] text-[18px] leading-[1.4] mobile:text-[16px]">We’ve saved your RSVP and will share updates on Instagram. Guantanamera will handle any promotional e-gift-card communication separately.
-            An RSVP does not guarantee a gift card.</p> : <><p className="my-[18px] font-[Georgia,serif] text-[31px] text-primary italic mobile:text-[25px]" lang="es">¡Nos vemos en el Solar!</p><p className="mx-auto max-w-[460px] text-[18px] leading-[1.4] mobile:text-[16px]">If you think this is a mistake, <a className="underline underline-offset-[3px]" href="https://www.instagram.com/elsolartimbero/" target="_blank" rel="noopener noreferrer">contact us on Instagram</a>.</p></>}
-        <div className="paper-surface mx-auto mt-[30px] mb-[60px] rounded-md px-[15px] py-5 mobile:mt-[25px]
-            mobile:px-0 mobile:pt-[18px]">
-          <h2 className="font-heading text-[40px] leading-[1.1] text-navy uppercase mobile:text-[31px]">Cuban Night Social</h2>
+        {closed ? <p className="mx-auto max-w-115 text-[18px] leading-[1.4] mobile:text-[16px]">
+            Join us tonight at Guantanamera for Cuban music, dance, and community.</p> :
+            success ? <p className="mx-auto max-w-115 text-[18px] leading-[1.4] mobile:text-[16px]">
+                We’ve saved your RSVP and will share updates on Instagram.{event?.disclaimer_version && " Guantanamera will handle promotional e-gift-card communication separately. An RSVP does not guarantee a gift card."}</p> :
+                <><p className="my-4.5 font-[Georgia,serif] text-[31px] text-primary italic mobile:text-[25px]" lang="es">¡Nos vemos en el Solar!</p><p className="mx-auto max-w-115 text-[18px] leading-[1.4] mobile:text-[16px]">
+                    If you think this is a mistake, <a className="underline underline-offset-[3px]" href="https://www.instagram.com/elsolartimbero/" target="_blank" rel="noopener noreferrer">contact us on Instagram</a>.</p></>}
+        <div className="paper-surface mx-auto mt-7.5 mb-15 rounded-md px-3.75 py-5 mobile:mt-6.25
+            mobile:px-0 mobile:pt-4.5">
+          <h2 className="font-heading text-[40px] leading-[1.1] text-navy uppercase mobile:text-[31px]">{event?.name ?? "Cuban Night Social"}</h2>
           <p className="font-heading text-[20px] tracking-[.06em] text-navy uppercase mobile:text-[16px]" lang="es">Música <span className="text-primary">★</span> Baile <span className="text-primary">★</span> Comunidad</p>
-          <EventDetails variant="result" fullDate={closed} />
+          <EventDetails event={event} variant="result" fullDate={closed} />
           {!closed && <>
           {/* A full navigation resets the in-page form state. */}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a className="print-brush inline-flex min-h-[60px] items-center justify-center gap-7 rounded-none px-6 pt-[13px] pb-[15px]
+          <Link className="print-brush inline-flex min-h-15 items-center justify-center gap-7 rounded-none px-6 pt-3.25 pb-3.75
             text-center font-heading text-[30px] leading-[1.1] font-bold tracking-[.09em] text-surface
-            uppercase cursor-pointer hover:[--print-color:var(--color-primary-hover)] disabled:opacity-[.72] mt-[27px] min-w-[270px] mobile:min-w-60
-            mobile:text-[25px]" href="/">{success ? "Back to home" : "View event"}</a>
+            uppercase cursor-pointer hover:[--print-color:var(--color-primary-hover)] disabled:opacity-[.72] mt-6.75 min-w-67.5 mobile:min-w-60
+            mobile:text-[25px]" href="/">{success ? "Back to home" : "View event"}</Link>
           </>}
         </div>
         {closed && <div className="mb-8">
           <p className="font-heading text-[31px] leading-[1.1] uppercase mobile:text-[25px]">Stay tuned for the next one!</p>
-          <p className="mx-auto mt-3 max-w-[460px] text-[18px] leading-[1.4] mobile:text-[16px]">Follow @elsolartimbero on Instagram for upcoming events.</p>
+          <p className="mx-auto mt-3 max-w-115 text-[18px] leading-[1.4] mobile:text-[16px]">Follow @elsolartimbero on Instagram for upcoming events.</p>
           <InstagramLink className="mt-5 text-navy" />
         </div>}
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[-1] h-[350px]
-        mask-[linear-gradient(transparent,black_30%)] mobile:h-[260px]" aria-hidden="true">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[-1] h-87.5
+        mask-[linear-gradient(transparent,black_30%)] mobile:h-65" aria-hidden="true">
         <Image
           src="/artwork/homepage-capitol-street.png"
           alt=""
@@ -80,8 +85,8 @@ export default function RsvpResult({ kind }: RsvpResultProps) {
           width={250}
           height={300}
           sizes="(max-width: 640px) 130px, 230px"
-          className="absolute bottom-[-25px] -left-10 h-auto w-60 -scale-x-100
-            mobile:-bottom-[10px] mobile:-left-[30px] mobile:w-[140px]"
+          className="absolute -bottom-6.25 -left-10 h-auto w-60 -scale-x-100
+            mobile:-bottom-2.5 mobile:-left-7.5 mobile:w-35"
         />
         <Image
           src="/artwork/vintage-red-car.png"
@@ -89,8 +94,8 @@ export default function RsvpResult({ kind }: RsvpResultProps) {
           width={390}
           height={260}
           sizes="(max-width: 640px) 230px, 390px"
-          className="absolute -right-10 bottom-[-25px] h-auto w-[390px]
-            mobile:-right-[55px] mobile:-bottom-[13px] mobile:w-60"
+          className="absolute -right-10 -bottom-6.25 h-auto w-97.5
+            mobile:-right-13.75 mobile:-bottom-3.25 mobile:w-60"
         />
       </div>
     </section>

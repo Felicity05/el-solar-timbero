@@ -1,4 +1,4 @@
 import "server-only";
 
-// Reopen here for a future event; never accept this setting from a submission.
-export const RSVP_OPEN: boolean = false;
+// Optional emergency override. Event availability normally comes from the DB.
+export const RSVP_OPEN = process.env.RSVP_ENABLED !== "false";

@@ -36,9 +36,12 @@ export const rsvpSchema = z.object({
     giftCardDisclaimerAccepted: z.literal(true, { error: "Please acknowledge the phone-sharing notice to RSVP." }),
 });
 
-export function validateRsvp(formData: FormData) {
+export function validateRsvp(formData: FormData, requiresDisclaimer = true) {
   // Explicitly select permitted input; never spread a request into a database row.
-  return rsvpSchema.safeParse({
+  const schema = requiresDisclaimer ? rsvpSchema.extend({
+    giftCardDisclaimerAccepted: z.literal(true, { error: "Please acknowledge the phone-sharing notice to RSVP." }),
+  }) : rsvpSchema.extend({ giftCardDisclaimerAccepted: z.boolean() });
+  return schema.safeParse({
     name: formData.get("name"),
     phone: formData.get("phone"),
     email: formData.get("email"),
