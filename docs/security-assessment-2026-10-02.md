@@ -12,7 +12,7 @@ Live testing used 26 form POSTs across two rate windows, a small set of public-a
 
 **Severity: Medium. Evidence: reproduced locally against the reviewed submission flow; not flooded on production.**
 
-In `src/lib/rsvp-submit.ts`, `processRsvp` consumes the global allowance before checking the IP allowance. Requests already blocked by the IP limit therefore still increment the shared global counter. This makes a single source capable of exhausting the 100-attempt/minute allowance and temporarily denying RSVPs to other IPs. Sustained requests can repeat the effect as the global window renews. A hosting firewall might reduce the attack, but its configuration was not verified.
+In `src/lib/rsvp/rsvp-submit.ts`, `processRsvp` consumes the global allowance before checking the IP allowance. Requests already blocked by the IP limit therefore still increment the shared global counter. This makes a single source capable of exhausting the 100-attempt/minute allowance and temporarily denying RSVPs to other IPs. Sustained requests can repeat the effect as the global window renews. A hosting firewall might reduce the attack, but its configuration was not verified.
 
 The local reproduction exercised the actual `processRsvp` function with deterministic counter dependencies and invalid form data. It made **zero network requests**:
 

@@ -28,7 +28,7 @@ The rate-limit and deployment changes must be included in your release commit. F
 
 ```sh
 git switch -c launch/vercel-ci
-git add .env.example README.md src/app/actions.ts src/components/rsvp/RsvpResult.tsx src/lib/rsvp-rate-limit.ts src/lib/rsvp-submit.ts supabase/migrations/20261002202858_add_rsvp_rate_limiting.sql tests/browser/rsvp.spec.ts tests/mock-supabase.mjs tests/rsvp-rate-limit.test.ts .github .nvmrc package.json package-lock.json vercel.json docs/deployment.md
+git add .env.example README.md src/app/actions.ts src/components/rsvp/RsvpResult.tsx src/lib/rsvp/rsvp-rate-limit.ts src/lib/rsvp/rsvp-submit.ts supabase/migrations/20261002202858_add_rsvp_rate_limiting.sql tests/browser/rsvp.spec.ts tests/mock-supabase.mjs tests/rsvp-rate-limit.test.ts .github .nvmrc package.json package-lock.json vercel.json docs/deployment.md
 git diff --cached --stat
 git commit -m "Add RSVP protection and Vercel CI pipeline"
 git push -u origin launch/vercel-ci

@@ -2,9 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
-import { clientIp, rateLimitKey } from "../src/lib/rsvp-rate-limit";
-import { processRsvp } from "../src/lib/rsvp-submit";
-import { disclaimerVersion } from "../src/lib/rsvp";
+import { clientIp, rateLimitKey } from "../src/lib/rsvp/rsvp-rate-limit";
+import { processRsvp } from "../src/lib/rsvp/rsvp-submit";
+import { disclaimerVersion } from "../src/lib/rsvp/rsvp";
 
 const eventSlug = "cuban-night-social-2026-10-12";
 const event = { slug: eventSlug, disclaimer_version: disclaimerVersion };

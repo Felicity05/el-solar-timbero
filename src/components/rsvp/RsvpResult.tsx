@@ -1,5 +1,5 @@
 import Image from "next/image";
-import type { RsvpEvent } from "@/lib/rsvp-event";
+import type { RsvpEvent } from "@/lib/rsvp/rsvp-event";
 import EventDetails from "@/components/event/EventDetails";
 import InstagramLink from "@/components/shared/InstagramLink";
 import Link from "next/link";

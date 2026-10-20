@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { rsvpSchema, validateRsvp } from "../src/lib/rsvp-validation";
-import { referralSources } from "../src/lib/rsvp";
+import { rsvpSchema, validateRsvp } from "../src/lib/rsvp/rsvp-validation";
+import { referralSources } from "../src/lib/rsvp/rsvp";
 
 function submission(overrides: Record<string, string> = {}) {
   const data = new FormData();

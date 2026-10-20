@@ -5,9 +5,9 @@ import { spawnSync } from "node:child_process";
 test("server diagnostics identify RPC, transport, schema and config failures without leaking sensitive data", () => {
   const script = `
     import assert from 'node:assert/strict';
-    import { callRsvpRpc } from './src/lib/rsvp-rpc.ts';
-    import { getAvailableRsvpEvents, getRsvpEventForSubmission } from './src/lib/rsvp-event.ts';
-    import { RsvpDiagnosticError } from './src/lib/rsvp-diagnostics.ts';
+    import { callRsvpRpc } from './src/lib/rsvp/rsvp-rpc.ts';
+    import { getAvailableRsvpEvents, getRsvpEventForSubmission } from './src/lib/rsvp/rsvp-event.ts';
+    import { RsvpDiagnosticError } from './src/lib/rsvp/rsvp-diagnostics.ts';
     const errors = []; const info = [];
     console.error = (_tag, entry) => errors.push(entry);
     console.info = (_tag, entry) => info.push(entry);

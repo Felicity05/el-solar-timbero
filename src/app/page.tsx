@@ -1,3 +1,7 @@
+import { ticketReturnUrl } from "@/lib/tickets/config";
+import { initializeTicket } from "./ticket-actions";
+import TicketPurchaseForm from "@/components/tickets/TicketPurchaseForm";
+import TicketCta from "@/components/tickets/TicketCta";
 import BrandPanel from "@/components/event/BrandPanel";
 import EventHero from "@/components/event/EventHero";
 import SiteFooter from "@/components/layout/SiteFooter";
@@ -6,9 +10,9 @@ import RsvpExperience from "@/components/rsvp/RsvpExperience";
 import RsvpResult from "@/components/rsvp/RsvpResult";
 import RsvpClosed from "@/components/rsvp/RsvpClosed";
 import Link from "next/link";
-import { getAvailableRsvpEvents } from "@/lib/rsvp-event";
+import { getAvailableRsvpEvents } from "@/lib/rsvp/rsvp-event";
 import { submitRsvp } from "./actions";
-import { diagnosticReference, reportRsvpFailure, RsvpDiagnosticError } from "@/lib/rsvp-diagnostics";
+import { diagnosticReference, reportRsvpFailure, RsvpDiagnosticError } from "@/lib/rsvp/rsvp-diagnostics";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +39,7 @@ export default async function Home({ searchParams }: {
     <div className="paper-surface mx-auto w-full overflow-clip border-x border-[#8b572e45]
       shadow-[0_0_60px_#35271935]">
       <a href="#main" className="absolute -top-25 left-4 z-30 bg-surface px-5 py-3">Skip to content</a>
-      <SiteHeader />
+      <SiteHeader ticketed={event?.admission_mode === "ticketed"} />
       <main id="main">
         {events.length > 1 && <nav aria-label="Available events" className="border-b border-border p-6">
           <h2 className="font-heading text-2xl">Upcoming events</h2>
@@ -49,7 +53,12 @@ export default async function Home({ searchParams }: {
             </Link>
           </li>)}</ul>
         </nav>}
-        {event?.open ? <RsvpExperience
+        {event?.open && event.admission_mode === "ticketed" ? <TicketPurchaseForm
+          key={event.slug} slug={event.slug} initializeAction={initializeTicket.bind(null, event.slug)} priceCents={event.price_cents!} currency={event.currency!}
+          ticketType={event.ticket_type_name!}
+          returnUrl={ticketReturnUrl()}
+          hero={<EventHero event={event} cta={<TicketCta />} />} aside={<BrandPanel />}
+        /> : event?.open ? <RsvpExperience
           key={event.slug}
           submitAction={submitRsvp.bind(null, event.slug)}
           disclaimerVersion={event.disclaimer_version}

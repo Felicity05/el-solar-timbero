@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { RSVP_OPEN } from "@/lib/rsvp-config";
+import { RSVP_OPEN } from "@/lib/rsvp/rsvp-config";
 
-export default function SiteHeader() {
+export default function SiteHeader({ ticketed = false }: { ticketed?: boolean }) {
   return (
     <header className="relative z-3 flex min-h-29.5 items-center gap-7 py-5 pr-14.5 pl-63 justify-between
                        tablet:pr-7.5 tablet:pl-53.5 mobile:min-h-22.75
@@ -19,8 +19,8 @@ export default function SiteHeader() {
           </span> Más que un placer,<br />un solar.
       </p>
         <div className="flex shrink-0 items-center gap-4 mobile:gap-2">
-            <a href="#rsvp-title" className="print-brush inline-flex min-h-11 items-center px-7 py-2 font-heading text-[23px] uppercase text-surface hover:[--print-color:var(--color-primary-hover)] mobile:hidden">
-                {RSVP_OPEN ? "RSVP" : "Tonight’s event"}
+            <a href={ticketed ? "#ticket-purchase" : "#rsvp-title"} className="print-brush inline-flex min-h-11 items-center px-7 py-2 font-heading text-[23px] uppercase text-surface hover:[--print-color:var(--color-primary-hover)] mobile:hidden">
+                {ticketed ? "Get Ticket" : RSVP_OPEN ? "RSVP" : "Tonight’s event"}
             </a>
             <a className="group inline-flex min-h-12 items-center justify-center gap-3 text-left text-[14px] leading-[1.3]"
                aria-label="Follow El Solar Timbero on Instagram" href="https://www.instagram.com/el_solar_timbero/" target="_blank" rel="noopener noreferrer">

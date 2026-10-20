@@ -33,7 +33,7 @@ await sql(`insert into public.events (slug,name,event_date,starts_at,ends_at,tim
   (current_date+366)::timestamp at time zone 'UTC','UTC','Local Test Venue','LOCAL ONLY','published',true)`);
 const server = spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3117'],{
   env:{...process.env,SUPABASE_URL:'http://127.0.0.1:54321',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:54321',SUPABASE_SERVICE_ROLE_KEY:key,
-    RSVP_ENABLED:'true'},stdio:['ignore','pipe','pipe'],
+    RSVP_ENABLED:'true',SITE_URL:'http://127.0.0.1:3117'},stdio:['ignore','pipe','pipe'],
 });
 let browser;
 try {

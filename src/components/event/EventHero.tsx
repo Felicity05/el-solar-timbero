@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
 import Image from "next/image";
 import EventDetails from "./EventDetails";
-import type { RsvpEvent } from "@/lib/rsvp-event";
+import type { RsvpEvent } from "@/lib/rsvp/rsvp-event";
 import styles from "./EventHero.module.css";
 
-export default function EventHero({ event }: { event: RsvpEvent }) {
+export default function EventHero({ event, cta }: { event: RsvpEvent; cta?: ReactNode }) {
   return (
     <section className="relative isolate min-h-165 tablet:min-h-147.5 mobile:flex
       mobile:min-h-0 mobile:flex-col" aria-labelledby="event-title">
@@ -58,6 +59,7 @@ export default function EventHero({ event }: { event: RsvpEvent }) {
           mobile:leading-tight" lang="es">Timba, son y lo mejor de la música cubana</p>
         <p className="mt-2 hidden font-heading text-[17px] uppercase tracking-[.06em] text-navy mobile:block" lang="es">Música <span className="text-primary">★</span> Baile <span className="text-primary">★</span> Comunidad</p>
         <EventDetails event={event} variant="hero" />
+        {cta}
       </div>
     </section>
   );

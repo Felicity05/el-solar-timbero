@@ -10,6 +10,9 @@ const eventSchema = z.object({
   starts_at: z.string(), ends_at: z.string(), timezone: z.string(),
   venue_name: z.string(), venue_address: z.string(), open: z.boolean(),
   disclaimer_version: z.string().nullable(),
+  admission_mode: z.enum(["rsvp", "ticketed"]).default("rsvp"),
+  price_cents: z.number().int().positive().nullable().optional(),
+  currency: z.string().nullable().optional(), ticket_type_name: z.string().nullable().optional(),
 });
 export type RsvpEvent = z.infer<typeof eventSchema>;
 function supported(event: RsvpEvent) {
@@ -17,14 +20,16 @@ function supported(event: RsvpEvent) {
 }
 
 export async function getAvailableRsvpEvents(): Promise<RsvpEvent[]> {
-  if (!RSVP_OPEN) return [];
+
   const data = await callRsvpRpc("event.discovery", "get_available_rsvp_events");
   const parsed = z.array(eventSchema).safeParse(data);
   if (!parsed.success) throw reportRsvpFailure({ operation: "event.discovery", rpc: "get_available_rsvp_events",
     stage: "response_validation", code: "INVALID_RESPONSE",
     issues: parsed.error.issues.map(issue => ({ path: issue.path.join("."), code: issue.code })),
   });
-  return parsed.data.filter(event => event.open && supported(event));
+  return parsed.data.filter(event => event.open && (event.admission_mode === "ticketed"
+    ? event.price_cents && event.currency === "usd" && event.ticket_type_name
+    : RSVP_OPEN && supported(event)));
 }
 
 // The event rendered with the form stays bound to that form. Never re-select

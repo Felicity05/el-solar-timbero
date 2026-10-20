@@ -9,7 +9,7 @@ test("the server action rejects valid and forged submissions before request or d
     "--conditions=react-server", "--import", "tsx", "--input-type=module", "-e",
     `import assert from 'node:assert/strict';
      import { submitRsvp } from './src/app/actions.ts';
-     import { RSVP_OPEN } from './src/lib/rsvp-config.ts';
+     import { RSVP_OPEN } from './src/lib/rsvp/rsvp-config.ts';
      assert.equal(RSVP_OPEN, false);
      for (const fields of [{}, {
        name: 'María Pérez', phone: '2015550123', email: 'maria@example.com',

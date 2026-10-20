@@ -2,7 +2,7 @@
 
 Status: normalization migration applied by the owner. The application now uses normalized RPC submission on this branch. The follow-up RPC migration has been tested only on LOCAL Supabase and awaits review before any remote application. See [the implementation and testing guide](rsvp-submission.md).
 
-This design follows the agreed rules: one normalized phone identifies one contact, a contact can register once per event, contacts hold current profile details, and RSVPs preserve the details submitted for each event. Each dated occurrence is a separate event. Event-series modeling and paid ticket tables are deferred.
+This design follows the agreed rules: one normalized phone identifies one contact, a contact can register once per event, contacts hold current profile details, and RSVPs preserve the details submitted for each event. Each dated occurrence is a separate event. Event-series modeling remains deferred. Paid admission is implemented separately alongside RSVP; see the ticketing section below.
 
 ## Relationships
 
@@ -32,6 +32,8 @@ erDiagram
         text timezone
         text status
         boolean rsvp_open
+        text admission_mode
+        boolean ticket_sales_open
         text gift_card_disclaimer_version "nullable"
         timestamptz created_at
     }
@@ -172,6 +174,14 @@ After explicit approval to generate migration SQL:
 
 No existing RSVP data is to be deleted by this migration. The unrelated private rate-limit table and its data are not part of contact normalization.
 
-## Deferred ticketing
+## Paid admission
 
-The agreed future limit is one ticket per contact per event. RSVP uniqueness does not enforce ticket issuance: the eventual ticket model needs its own database-enforced rule for that limit and idempotent issuance. Orders, ticket types, payments, and tickets are outside this migration. Do not add a ticket count to RSVP or treat an RSVP as proof of payment.
+`events.admission_mode` is non-null text with a check allowing rsvp/ticketed, default rsvp. `events.ticket_sales_open` is non-null boolean, default false. These are added by the new paid-ticket migration; rsvp_open continues to control RSVP mode only.
+
+The additive paid-ticket migration adds ticket_types, orders, tickets, and stripe_events. Orders and tickets each independently enforce UNIQUE(contact_id,event_id); tickets also enforce unique order_id. A verified payment webhook transaction issues one ticket. RSVP records remain separate and never prove payment. Events default to admission_mode=rsvp; ticketed events use ticket_sales_open and an active ticket type. See [ticketing.md](ticketing.md) for the complete model, security boundary and ER diagram.
+
+
+Paid-ticket MVP (additive migration, local setup, security and production checklist): [ticketing documentation](ticketing.md). RSVP remains available for RSVP-mode events.
+
+
+The additive `20261020203257_ticket_purchase_recovery.sql` migration tracks an order's payment attempt number/start time and superseded canceled Stripe intent IDs. A server-only recovery RPC rotates the browser capability only after Stripe cancellation, under a row lock with an expected-attempt check. Order/contact/event uniqueness and webhook-only ticket fulfillment remain unchanged. Paid orders cannot be recovered into a new payment. See [ticket recovery](ticketing.md) for the transaction boundaries and remaining ambiguous-intent limitation.

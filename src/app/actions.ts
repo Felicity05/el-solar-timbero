@@ -1,13 +1,13 @@
 "use server";
 
 import { headers } from "next/headers";
-import { callRsvpRpc } from "@/lib/rsvp-rpc";
-import { diagnosticReference, reportRsvpFailure } from "@/lib/rsvp-diagnostics";
-import { clientIp, rateLimitKey } from "@/lib/rsvp-rate-limit";
-import { processRsvp } from "@/lib/rsvp-submit";
-import type { RsvpState } from "@/lib/rsvp";
-import { RSVP_OPEN } from "@/lib/rsvp-config";
-import { getRsvpEventForSubmission } from "@/lib/rsvp-event";
+import { callRsvpRpc } from "@/lib/rsvp/rsvp-rpc";
+import { diagnosticReference, reportRsvpFailure } from "@/lib/rsvp/rsvp-diagnostics";
+import { clientIp, rateLimitKey } from "@/lib/rsvp/rsvp-rate-limit";
+import { processRsvp } from "@/lib/rsvp/rsvp-submit";
+import type { RsvpState } from "@/lib/rsvp/rsvp";
+import { RSVP_OPEN } from "@/lib/rsvp/rsvp-config";
+import { getRsvpEventForSubmission } from "@/lib/rsvp/rsvp-event";
 
 export async function submitRsvp(eventSlug: string, _previous: RsvpState, formData: FormData): Promise<RsvpState> {
   if (!RSVP_OPEN) {

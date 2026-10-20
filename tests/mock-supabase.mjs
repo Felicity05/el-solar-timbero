@@ -5,10 +5,65 @@ const counters = new Map();
 let limiterUnavailable = false;
 let discoveryUnavailable = false;
 let noEvents = false;
+let ticketMode = false;
+const orders = new Map();
+const intents = new Map();
+const stripeEvents = new Set();
 createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   if (req.url === "/health") return res.end("{}");
-  if (req.url === "/reset" && req.method === "POST") { rows.clear(); counters.clear(); limiterUnavailable = false; discoveryUnavailable = false; noEvents = false; return res.end("{}"); }
+  if (req.url === "/reset" && req.method === "POST") { rows.clear(); counters.clear(); limiterUnavailable = false; discoveryUnavailable = false; noEvents = false; ticketMode=false; orders.clear(); intents.clear(); stripeEvents.clear(); return res.end("{}"); }
+  if (req.url === "/ticket-mode" && req.method === "POST") { ticketMode=true; return res.end("{}"); }
+  if (req.url === "/ticket-state") return res.end(JSON.stringify({orders:[...orders.values()],intents:[...intents.values()]}));
+  if (req.url.startsWith('/mock-stripe/v1/payment_intents')) {
+    let body='';for await(const chunk of req)body+=chunk;
+    if(req.method==='POST' && req.url.endsWith('/cancel')) {
+      const pi=[...intents.values()].find(pi=>req.url.endsWith('/'+pi.id+'/cancel'));
+      if(!pi||['succeeded','processing'].includes(pi.status)){res.statusCode=400;return res.end(JSON.stringify({error:{message:'Not cancelable'}}));}
+      pi.status='canceled';return res.end(JSON.stringify(pi));
+    }
+    if(req.method==='POST') {
+      const params=new URLSearchParams(body);const idempotency=req.headers['idempotency-key'];
+      let pi=intents.get(idempotency);
+      if(!pi){const suffix=intents.size?'Attempt'+intents.size:'';pi={id:'pi_testFixture'+suffix,object:'payment_intent',amount:Number(params.get('amount')),amount_received:0,currency:params.get('currency'),payment_method_types:params.getAll('payment_method_types[0]'),status:'requires_payment_method',client_secret:'pi_testFixture'+suffix+'_secret_fixture',metadata:{order_id:params.get('metadata[order_id]'),event_id:params.get('metadata[event_id]'),ticket_type_id:params.get('metadata[ticket_type_id]')}};intents.set(idempotency,pi);}
+      return res.end(JSON.stringify(pi));
+    }
+    return res.end(JSON.stringify([...intents.values()].find(pi=>req.url.endsWith(pi.id))));
+  }
+  if (req.url === "/rest/v1/rpc/initialize_ticket_order") {
+    let body='';for await(const chunk of req)body+=chunk;const p=JSON.parse(body);
+    if(p.p_event_slug!=='browser-ticket-event')return res.end(JSON.stringify({status:'closed'}));
+    let o=orders.get(p.p_phone);
+    if(o?.status==='paid')return res.end(JSON.stringify({status:'already_purchased'}));
+    if(!o){o={status:'pending',order_id:'10000000-0000-4000-8000-000000000001',event_id:'10000000-0000-4000-8000-000000000002',ticket_type_id:'10000000-0000-4000-8000-000000000003',amount_cents:1000,currency:'usd',payment_intent_id:null,payment_attempt:0,superseded:[],access:p.p_access_hash};orders.set(p.p_phone,o);}
+    return res.end(JSON.stringify({...o,status:o.access===p.p_access_hash?'pending':'recovery_required'}));
+  }
+  if (req.url === "/rest/v1/rpc/recover_ticket_order") {
+    let body='';for await(const chunk of req)body+=chunk;const p=JSON.parse(body);
+    const o=orders.get(p.p_phone);
+    const ok=!!o&&o.order_id===p.p_order_id&&o.status==='pending'&&o.payment_attempt===p.p_expected_attempt&&(!o.payment_intent_id||o.payment_intent_id===p.p_canceled_intent_id);
+    if(ok){o.superseded.push(p.p_canceled_intent_id);o.access=p.p_access_hash;o.payment_intent_id=null;o.payment_attempt++;}
+    return res.end(JSON.stringify(ok));
+  }
+  if (req.url === "/rest/v1/rpc/attach_ticket_payment_intent") {
+    let body='';for await(const chunk of req)body+=chunk;const p=JSON.parse(body);
+    const o=[...orders.values()].find(o=>o.order_id===p.p_order_id&&o.access===p.p_access_hash&&o.payment_attempt===(p.p_attempt??0));
+    if(o)o.payment_intent_id=p.p_intent_id;return res.end(JSON.stringify(!!o));
+  }
+  if (req.url === "/rest/v1/rpc/process_ticket_payment") {
+    let body='';for await(const chunk of req)body+=chunk;const p=JSON.parse(body);
+    if(stripeEvents.has(p.p_stripe_event_id))return res.end(JSON.stringify('duplicate'));
+    const o=[...orders.values()].find(o=>o.order_id===p.p_order_id);
+    if(!o||o.payment_intent_id!==p.p_intent_id||o.amount_cents!==p.p_amount){res.statusCode=500;return res.end('{}');}
+    stripeEvents.add(p.p_stripe_event_id);
+    if(p.p_event_type==='payment_intent.succeeded'){o.status='paid';o.ticket_code??=p.p_ticket_code;}
+    return res.end(JSON.stringify('fulfilled'));
+  }
+  if (req.url === "/rest/v1/rpc/get_ticket_purchase") {
+    let body='';for await(const chunk of req)body+=chunk;const p=JSON.parse(body);
+    const o=[...orders.values()].find(o=>o.access===p.p_access_hash);
+    return res.end(JSON.stringify(o?{status:o.status,ticket_code:o.ticket_code??null,ticket_status:o.ticket_code?'valid':null,event_name:'LOCAL ONLY — Ticket Event',event_date:'2026-12-30',starts_at:'2026-12-31T01:00:00Z',ends_at:'2026-12-31T04:00:00Z',timezone:'America/New_York',venue_name:'Local Test Venue',venue_address:'LOCAL ONLY',ticket_type:'General Admission',amount_cents:1000,currency:'usd'}:null));
+  }
   if (req.url === "/discovery-unavailable" && req.method === "POST") { discoveryUnavailable = true; return res.end("{}"); }
   if (req.url === "/no-events" && req.method === "POST") { noEvents = true; return res.end("{}"); }
   if (req.url === "/limiter-unavailable" && req.method === "POST") { limiterUnavailable = true; return res.end("{}"); }
@@ -34,7 +89,7 @@ createServer(async (req, res) => {
       starts_at: "2027-01-05T01:00:00Z", ends_at: "2027-01-05T04:00:00Z" };
     if(req.url.endsWith("get_available_rsvp_events")) {
       if(discoveryUnavailable) { res.statusCode=503; return res.end("{}"); }
-      return res.end(JSON.stringify(noEvents ? [] : [event,later]));
+      return res.end(JSON.stringify(noEvents ? [] : ticketMode ? [event,later,{...event,slug:'browser-ticket-event',name:'LOCAL ONLY — Ticket Event',event_date:'2026-12-30',admission_mode:'ticketed',price_cents:1000,currency:'usd',ticket_type_name:'General Admission'}] : [event,later]));
     }
     let body=""; for await (const chunk of req) body+=chunk;
     return res.end(JSON.stringify(JSON.parse(body).p_event_slug === later.slug ? later : event));

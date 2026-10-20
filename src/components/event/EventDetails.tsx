@@ -1,4 +1,4 @@
-import type { RsvpEvent } from "@/lib/rsvp-event";
+import type { RsvpEvent } from "@/lib/rsvp/rsvp-event";
 
 type EventDetailsProps = {
   event: RsvpEvent;
@@ -57,7 +57,7 @@ export default function EventDetails({ event, variant = "hero", fullDate = false
                   <path d="M7 9h2m-2 6h2m6-6h2m-2 6h2" />
               </g>
           </svg>
-        <p className={`${titleClassName} mobile:whitespace-nowrap`}>FREE.99</p>
+        <p className={`${titleClassName} mobile:whitespace-nowrap`}>{event.admission_mode === "ticketed" ? new Intl.NumberFormat("en-US", { style: "currency", currency: event.currency ?? "usd", maximumFractionDigits: 0 }).format((event.price_cents ?? 0) / 100) : "FREE.99"}</p>
       </div>
       <div className={`event-location ${itemClassName} pr-0 mobile:pr-0 ${variant === "hero" ? "tablet:basis-full tablet:px-0" : ""}`}>
         <svg aria-hidden="true" viewBox="0 0 24 24" className={iconClassName}>

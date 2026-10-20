@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
-import { reportRsvpFailure } from "../rsvp-diagnostics";
+import { reportRsvpFailure } from "../rsvp/rsvp-diagnostics";
 
 export function getSupabaseConnectionInfo() {
   const url = process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();

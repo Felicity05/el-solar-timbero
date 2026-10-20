@@ -13,13 +13,13 @@ Restart `npm run dev` after credential changes. The local API URL and server cre
 ## Where the data goes
 
 1. `src/app/page.tsx` requests database-driven discovery.
-2. `src/lib/rsvp-event.ts` calls `get_available_rsvp_events` through `src/lib/rsvp-rpc.ts`.
+2. `src/lib/rsvp/rsvp-event.ts` calls `get_available_rsvp_events` through `src/lib/rsvp/rsvp-rpc.ts`.
 3. `src/lib/supabase/server.ts` resolves the private runtime URL first, validates configuration, and creates the server-only client.
 4. The local gateway authenticates the key; PostgREST executes the service-role-only SECURITY DEFINER RPC.
 5. The SQL function selects only published/open/future events and returns a JSON array of presentation fields.
 6. The loader validates that JSON with Zod and filters unsupported disclosures. A nullable field must still be present as JSON null.
 7. The page defaults to the next event or selects an eligible event requested through navigation. It binds the displayed event's slug to its Server Action.
-8. `src/app/actions.ts` resolves that event again, checks rate limits and calls `submit_normalized_rsvp` transactionally. `src/lib/rsvp-submit.ts` maps controlled results to UI states.
+8. `src/app/actions.ts` resolves that event again, checks rate limits and calls `submit_normalized_rsvp` transactionally. `src/lib/rsvp/rsvp-submit.ts` maps controlled results to UI states.
 
 An empty discovery array is a normal no-open-events state. RPC/configuration/transport/response-shape failures show the unavailable state with a reference ID instead.
 
@@ -27,7 +27,7 @@ An empty discovery array is a normal no-open-events state. RPC/configuration/tra
 
 Logs appear in the terminal running Next.js, or server-function logs in an eventual hosted environment. They are not personal-data dumps or raw PostgreSQL exceptions. Failures are always logged; `RSVP_DEBUG=true` additionally logs RPC start/completion, HTTP status and elapsed time. Disable that optional flag to reduce routine log volume.
 
-`src/lib/rsvp-diagnostics.ts` emits structured `[rsvp]` records. Example:
+`src/lib/rsvp/rsvp-diagnostics.ts` emits structured `[rsvp]` records. Example:
 
 ```text
 [rsvp] {

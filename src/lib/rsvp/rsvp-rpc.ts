@@ -1,5 +1,5 @@
 import "server-only";
-import { getSupabaseServer, getSupabaseConnectionInfo } from "./supabase/server";
+import { getSupabaseServer, getSupabaseConnectionInfo } from "../supabase/server";
 import { reportRsvpFailure, RsvpDiagnosticError, rsvpDebug, type RsvpOperation } from "./rsvp-diagnostics";
 
 export async function callRsvpRpc(operation: RsvpOperation, rpc: string, args?: Record<string, unknown>): Promise<unknown> {

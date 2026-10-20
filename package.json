@@ -6,26 +6,32 @@
     "node": "24.x"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "stripe:listen": "node --env-file=.env.development.local scripts/stripe-listen.mjs",
+    "test:local:tickets": "node tests/local-ticket.integration.mjs"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "7.0.0",
+    "@stripe/stripe-js": "10.1.0",
     "@supabase/supabase-js": "^2.117.2",
     "libphonenumber-js": "1.13.14",
     "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "0.0.1",
+    "stripe": "23.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "1.63.0",
+    "@stripe/cli": "1.54.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "22.20.4",
     "@types/react": "19.3.0",

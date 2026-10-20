@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, type ReactNode } from "react";
 import RsvpForm from "./RsvpForm";
-import { type RsvpState } from "@/lib/rsvp";
+import { type RsvpState } from "@/lib/rsvp/rsvp";
 
 const initialState: RsvpState = { status: "idle" };
 
