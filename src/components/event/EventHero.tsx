@@ -1,8 +1,10 @@
 import Image from "next/image";
 import EventDetails from "./EventDetails";
+import CurrentEventDetails from "./CurrentEventDetails";
+import type { RsvpEvent } from "@/lib/rsvp-event";
 import styles from "./EventHero.module.css";
 
-export default function EventHero() {
+export default function EventHero({ event }: { event?: RsvpEvent }) {
   return (
     <section className="relative isolate min-h-165 tablet:min-h-147.5 mobile:flex
       mobile:min-h-0 mobile:flex-col" aria-labelledby="event-title">
@@ -50,14 +52,13 @@ export default function EventHero() {
           mobile:tracking-[.17em]"><span className="text-primary" aria-hidden="true">★</span> Next event <span className="text-primary" aria-hidden="true">★</span></p>
         <h1 id="event-title" className="origin-left -rotate-3 font-heading uppercase text-navy text-[clamp(64px,7.2vw,92px)] leading-[.93] font-extrabold
           tracking-[-.035em] tablet:text-[clamp(58px,7.5vw,75px)] mobile:rotate-0 mobile:whitespace-nowrap mobile:text-[clamp(32px,9.2vw,56px)]
-          mobile:leading-[.97] mobile:tracking-[-.03em]"><span className="print-ink-text text-primary text-[2.05em] leading-[.86]
-          tracking-[-.045em] mobile:mr-[.13em] mobile:text-[1em] mobile:leading-[.97]">Cuban</span><br className="mobile:hidden" /><span className="print-ink-text text-navy">Night Social</span></h1>
+          mobile:leading-[.97] mobile:tracking-[-.03em]">{event ? event.name : "Cuban Night Social"}</h1>
         <p className="font-heading uppercase text-navy mt-5 max-w-120
           pb-3.75 text-[23px] leading-[1.2] tablet:max-w-92.5 tablet:text-[21px] mobile:mx-auto
           mobile:mt-3 mobile:hidden mobile:max-w-77.5 mobile:pb-3.25 mobile:text-[17px]
           mobile:leading-tight" lang="es">Timba, son y lo mejor de la música cubana</p>
         <p className="mt-2 hidden font-heading text-[17px] uppercase tracking-[.06em] text-navy mobile:block" lang="es">Música <span className="text-primary">★</span> Baile <span className="text-primary">★</span> Comunidad</p>
-        <EventDetails variant="hero" />
+        {event ? <CurrentEventDetails event={event} /> : <EventDetails variant="hero" />}
       </div>
     </section>
   );

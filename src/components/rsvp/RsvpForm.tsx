@@ -12,6 +12,7 @@ const labelClassName =
   "mb-[7px] block font-[Georgia,serif] text-[17px] leading-[1.3] font-bold text-navy mobile:text-[16px]";
 
 type RsvpFormProps = {
+  disclaimerVersion: string | null;
   state: RsvpState;
   formAction: (formData: FormData) => void;
   pending: boolean;
@@ -19,7 +20,7 @@ type RsvpFormProps = {
 };
 
 // Imported by RsvpExperience, so this component is inside its client boundary.
-export default function RsvpForm({ state, formAction, pending, errorSummaryRef }: RsvpFormProps) {
+export default function RsvpForm({ state, formAction, pending, errorSummaryRef, disclaimerVersion }: RsvpFormProps) {
   const [values, setValues] = useState({
     name: "",
     phone: "",
@@ -98,10 +99,10 @@ export default function RsvpForm({ state, formAction, pending, errorSummaryRef }
               {...errorProps("phone")}
               aria-describedby={`phone-hint${state.errors?.phone ? " phone-error" : ""}`}
             />
-            <p id="phone-hint" className="mt-[7px] text-[13px] leading-[1.45] text-muted">Outside the US? Include + and your country code.</p>
+            <p id="phone-hint" className="mt-1.75 text-[13px] leading-[1.45] text-muted">Outside the US? Include + and your country code.</p>
             {fieldError("phone")}
           </div>
-          <div className="mb-5 mobile:mb-[19px]">
+          <div className="mb-5 mobile:mb-4.75">
             <label className={labelClassName} htmlFor="email">Email</label>
             <input
               className={controlClassName}
@@ -120,7 +121,7 @@ export default function RsvpForm({ state, formAction, pending, errorSummaryRef }
             />
             {fieldError("email")}
           </div>
-          <div className="mb-5 mobile:mb-[19px]">
+          <div className="mb-5 mobile:mb-4.75">
             <label className={labelClassName} htmlFor="referralSource">How did you hear about us?</label>
             <select
               className={`${controlClassName} pr-7`}
@@ -138,9 +139,10 @@ export default function RsvpForm({ state, formAction, pending, errorSummaryRef }
             </select>
             {fieldError("referralSource")}
           </div>
-          <div className="mt-[26px] border-t border-border-subtle pt-5 mobile:mt-[23px] mobile:pt-[18px]">
-            <label className="flex cursor-pointer items-start gap-3 text-[15px] leading-[1.5] mobile:text-[14px]" htmlFor="giftCardDisclaimerAccepted">
-              <input className="mt-px size-6 shrink-0 appearance-none rounded-sm border border-border bg-surface
+          {disclaimerVersion !== null && <div className="mt-6.5 border-t border-border-subtle pt-5 mobile:mt-5.75 mobile:pt-4.5">
+            <input type="hidden" name="displayed_disclaimer_version" value={disclaimerVersion} />
+            <label className="flex cursor-pointer items-start gap-3 text-[15px] leading-normal mobile:text-[14px]" htmlFor="giftCardDisclaimerAccepted">
+              <input className="mt-px size-6 shrink-0 appearance-none rounded-sm border
                      checked:bg-primary checked:border-border
                      focus:outline-none focus:ring-2 focus:ring-navy focus:ring-offset-0 cursor-pointer"
               id="giftCardDisclaimerAccepted"
@@ -153,16 +155,16 @@ export default function RsvpForm({ state, formAction, pending, errorSummaryRef }
               <span>{giftCardDisclaimer}</span>
             </label>
             {fieldError("giftCardDisclaimerAccepted")}
-            <p className="mt-[11px] pl-9 text-[13px] leading-[1.45] text-muted mobile:text-[12px]">An RSVP does not guarantee a gift card.
+            <p className="mt-2.75 pl-9 text-[13px] leading-[1.45] text-muted mobile:text-[12px]">An RSVP does not guarantee a gift card.
               Guantanamera determines eligibility and sends its own gift-card QR codes.</p>
-          </div>
-          <button type="submit" className="print-brush flex min-h-[60px] items-center justify-center gap-7 rounded-none px-6 pt-[13px] pb-[15px] mx-auto
+          </div>}
+          <button type="submit" className="print-brush flex min-h-15 items-center justify-center gap-7 rounded-none px-6 pt-3.25 pb-3.75 mx-auto
             text-center font-heading text-[30px] leading-[1.1] font-bold tracking-[.09em] text-surface uppercase cursor-pointer
-            hover:[--print-color:var(--color-primary-hover)] disabled:opacity-[.72] mt-[26px] w-[60%]" disabled={pending}>
+            hover:[--print-color:var(--color-primary-hover)] disabled:opacity-[.72] mt-6.5 w-[60%]" disabled={pending}>
             {pending ? "Saving your RSVP…" : "RSVP"}
           </button>
         </fieldset>
-        <p className="mt-4 text-[12px] leading-normal text-muted">We collect these details to manage this event’s RSVPs and the offer described above.
+        <p className="mt-4 text-[12px] leading-normal text-muted">We collect these details to manage this event’s RSVPs{disclaimerVersion !== null ? " and the offer described above" : ""}.
           For questions about your information, contact <a className="underline underline-offset-[3px]" href="https://www.instagram.com/el_solar_timbero/" target="_blank" rel="noopener noreferrer">@elsolartimbero</a>.
         </p>
       </form>

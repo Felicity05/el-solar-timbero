@@ -22,6 +22,6 @@ test("the server action rejects valid and forged submissions before request or d
        assert.match(state.message, /RSVPs are now closed/);
        assert.equal(state.errors, undefined);
      }`,
-  ], { encoding: "utf8", env: { ...process.env, NEXT_PUBLIC_SUPABASE_URL: "", SUPABASE_SERVICE_ROLE_KEY: "" } });
+  ], { encoding: "utf8", env: { ...process.env, RSVP_ENABLED: "false", NEXT_PUBLIC_SUPABASE_URL: "", SUPABASE_SERVICE_ROLE_KEY: "" } });
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });

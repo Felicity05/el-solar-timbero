@@ -1,12 +1,15 @@
 import Image from "next/image";
+import type { RsvpEvent } from "@/lib/rsvp-event";
+import CurrentEventDetails from "@/components/event/CurrentEventDetails";
 import EventDetails from "@/components/event/EventDetails";
 import InstagramLink from "@/components/shared/InstagramLink";
 
 type RsvpResultProps = {
+  event?: RsvpEvent;
   kind: "success" | "duplicate" | "closed";
 };
 
-export default function RsvpResult({ kind }: RsvpResultProps) {
+export default function RsvpResult({ kind, event }: RsvpResultProps) {
   const success = kind === "success";
   const closed = kind === "closed";
   return (
@@ -43,13 +46,12 @@ export default function RsvpResult({ kind }: RsvpResultProps) {
         </h1>
         <p lang={closed ? "es" : undefined} className="mx-auto mt-[18px] max-w-[540px] font-[Georgia,serif] text-[25px] leading-[1.35] text-navy mobile:text-[21px]">{closed ? "¡Nos vemos esta noche en El Solar!" : success ? "Your RSVP has been confirmed." : "Looks like this phone number has already RSVP’d for this event."}</p>
         <p className="my-3 font-heading text-[23px] leading-[1.3] tracking-[.2em] text-primary" aria-hidden="true">― ★ ―</p>
-        {closed ? <p className="mx-auto max-w-[460px] text-[18px] leading-[1.4] mobile:text-[16px]">Join us tonight at Guantanamera for Cuban music, dance, and community.</p> : success ? <p className="mx-auto max-w-[460px] text-[18px] leading-[1.4] mobile:text-[16px]">We’ve saved your RSVP and will share updates on Instagram. Guantanamera will handle any promotional e-gift-card communication separately.
-            An RSVP does not guarantee a gift card.</p> : <><p className="my-[18px] font-[Georgia,serif] text-[31px] text-primary italic mobile:text-[25px]" lang="es">¡Nos vemos en el Solar!</p><p className="mx-auto max-w-[460px] text-[18px] leading-[1.4] mobile:text-[16px]">If you think this is a mistake, <a className="underline underline-offset-[3px]" href="https://www.instagram.com/elsolartimbero/" target="_blank" rel="noopener noreferrer">contact us on Instagram</a>.</p></>}
+        {closed ? <p className="mx-auto max-w-[460px] text-[18px] leading-[1.4] mobile:text-[16px]">Join us tonight at Guantanamera for Cuban music, dance, and community.</p> : success ? <p className="mx-auto max-w-[460px] text-[18px] leading-[1.4] mobile:text-[16px]">We’ve saved your RSVP and will share updates on Instagram.{event?.disclaimer_version && " Guantanamera will handle promotional e-gift-card communication separately. An RSVP does not guarantee a gift card."}</p> : <><p className="my-[18px] font-[Georgia,serif] text-[31px] text-primary italic mobile:text-[25px]" lang="es">¡Nos vemos en el Solar!</p><p className="mx-auto max-w-[460px] text-[18px] leading-[1.4] mobile:text-[16px]">If you think this is a mistake, <a className="underline underline-offset-[3px]" href="https://www.instagram.com/elsolartimbero/" target="_blank" rel="noopener noreferrer">contact us on Instagram</a>.</p></>}
         <div className="paper-surface mx-auto mt-[30px] mb-[60px] rounded-md px-[15px] py-5 mobile:mt-[25px]
             mobile:px-0 mobile:pt-[18px]">
-          <h2 className="font-heading text-[40px] leading-[1.1] text-navy uppercase mobile:text-[31px]">Cuban Night Social</h2>
+          <h2 className="font-heading text-[40px] leading-[1.1] text-navy uppercase mobile:text-[31px]">{event?.name ?? "Cuban Night Social"}</h2>
           <p className="font-heading text-[20px] tracking-[.06em] text-navy uppercase mobile:text-[16px]" lang="es">Música <span className="text-primary">★</span> Baile <span className="text-primary">★</span> Comunidad</p>
-          <EventDetails variant="result" fullDate={closed} />
+          {event ? <CurrentEventDetails event={event} /> : <EventDetails variant="result" fullDate={closed} />}
           {!closed && <>
           {/* A full navigation resets the in-page form state. */}
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
