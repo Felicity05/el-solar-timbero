@@ -14,7 +14,9 @@ export async function POST(request: Request) {
   try {
     // MUST remain raw text: parsing JSON first invalidates signature verification.
     event = getStripe().webhooks.constructEvent(await request.text(), signature, secret);
-  } catch { return Response.json({ error: "Invalid signature" }, { status: 400 }); }
+  } catch {
+    return Response.json({ error: "Invalid signature" }, { status: 400 });
+  }
   const liveAllowed = process.env.STRIPE_LIVE_MODE === "true" && process.env.NODE_ENV === "production";
   if (event.livemode && !liveAllowed) return Response.json({ error: "Live mode disabled" }, { status: 400 });
   try {

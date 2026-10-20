@@ -45,9 +45,7 @@ Integration scripts target only a fixed local Docker container; they never accep
 
 Remaining launch steps: user review of migration/function and code, manual application of the new migration in the intended environment, then deployment/configuration only when authorized. This RSVP migration does not add payment tables. The later, separate [paid-ticket MVP](ticketing.md) adds paid admission alongside RSVP.
 
-
 Verification outcome: 38 automated tests passed; all 10 local PostgreSQL integration checks passed, including eight concurrent independent sessions; all three production-browser checks passed. Lint, typecheck and production build passed. The sandboxed build initially failed to resolve Google Fonts; the approved build with network access succeeded. The final build explicitly used a local public API URL and the browser harness supplies private SUPABASE_URL at runtime. Rebuild with the intended production environment before any later authorized deployment. Runtime is aligned to Node.js 24.x LTS: package.json and lockfile declare 24.x, .nvmrc selects 24, both CI jobs read .nvmrc, and Vercel follows the package engine setting. Verification runs on local Node.js v24.21.0.
-
 
 The discovery migration was applied only to LOCAL Supabase for verification. Remote environments require manual review/application of that new migration before using this application version. Direct table grants and the transactional submission RPC are unchanged. Updated browser tests cover automatic selection, navigation among event occurrences, bound-event submission, missing events, no eligible events and DB discovery failures. The local integration scripts now verify discovery and submission together.
 
@@ -60,6 +58,5 @@ Final checks passed on Node v24.21.0: lint, typecheck, 40 automated tests, produ
 The branch contains the fetched origin/main history. Latest application changes and the discovery migration still need the final commit and hosted CI review before merging. No push, merge, deployment or migration application was performed during this final review.
 
 Before releasing the application, review target migration history and apply only pending migrations in timestamp order: normalized_rsvp_submission, then discover_available_rsvp_events (the earlier normalization/backfill was already applied by the owner). Do not rerun one-shot migrations already recorded in the target history. If merging main automatically triggers Vercel, coordinate/hold that deployment until the required RPC migrations are applied; otherwise the new app will correctly report events unavailable while the RPCs are missing. Never load seed.local.sql or scratch SQL in production. Production configuration needs the matching production URL/server secret and no hardcoded event slug; do not carry local URLs, local keys or the local build artifact into deployment.
-
 
 The current guarded local seed also includes a clearly fake ticketed test event, without replacing this RSVP fixture. The new paid-admission migration guards the RSVP lookup/write against ticketed events. See [ticketing.md](ticketing.md) for current setup and verification.

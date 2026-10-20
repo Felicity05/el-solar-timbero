@@ -37,18 +37,8 @@ export default function RsvpExperience({ hero, aside, success, duplicate, discla
   return (
     <div ref={container}>
       {hero}
-      <div className="relative grid grid-cols-[minmax(0,1fr)_310px] gap-13.5 px-16
-        pt-8 pb-15
-        tablet:grid-cols-[minmax(0,1fr)_220px] tablet:gap-7.5 tablet:px-7.5 tablet:py-10.5
-        mobile:block mobile:px-5 mobile:pt-5 mobile:pb-7.5 narrow:px-4">
-
-        <RsvpForm
-          disclaimerVersion={disclaimerVersion}
-          state={state}
-          formAction={formAction}
-          pending={pending}
-          errorSummaryRef={errorSummary}
-        />
+      <div className="tablet:grid-cols-[minmax(0,1fr)_220px] tablet:gap-7.5 tablet:px-7.5 tablet:py-10.5 mobile:block mobile:px-5 mobile:pt-5 mobile:pb-7.5 narrow:px-4 relative grid grid-cols-[minmax(0,1fr)_310px] gap-13.5 px-16 pt-8 pb-15">
+        <RsvpForm disclaimerVersion={disclaimerVersion} state={state} formAction={formAction} pending={pending} errorSummaryRef={errorSummary} />
         {aside}
       </div>
     </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import {Barlow_Condensed, Birthstone, Source_Sans_3} from "next/font/google";
+import { Barlow_Condensed, Birthstone, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import type { ReactNode } from "react";
 
@@ -25,15 +25,12 @@ const birthstone = Birthstone({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ?
-      `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")),
+  metadataBase: new URL(process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")),
   title: "Cuban Night Social · October 12 | El Solar Timbero",
-  description: "RSVPs are now closed. Join us tonight for timba, son, and Cuban dance at Guantanamera, NYC. " +
-      "Monday, October 12, 2026, 8–11:30 PM. Free admission. Música, baile, comunidad.",
+  description: "RSVPs are now closed. Join us tonight for timba, son, and Cuban dance at Guantanamera, NYC. " + "Monday, October 12, 2026, 8–11:30 PM. Free admission. Música, baile, comunidad.",
   openGraph: {
     title: "Cuban Night Social · October 12",
-    description: "El Solar Timbero at Guantanamera · 8–11:30 PM · NYC · Free admission. " +
-        "RSVPs are now closed. ¡Nos vemos esta noche en El Solar!",
+    description: "El Solar Timbero at Guantanamera · 8–11:30 PM · NYC · Free admission. " + "RSVPs are now closed. ¡Nos vemos esta noche en El Solar!",
     type: "website",
     locale: "en_US",
   },
@@ -44,15 +41,10 @@ type RootLayoutProps = {
   children: ReactNode;
 };
 
-export default function RootLayout({ children } : RootLayoutProps) {
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html
-      lang="en"
-      className={`${sourceSans.variable} ${birthstone.variable}
-      ${barlowCondensed.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
-        {children}
-      </body>
+    <html lang="en" className={`${sourceSans.variable} ${birthstone.variable} ${barlowCondensed.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }

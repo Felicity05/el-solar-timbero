@@ -17,7 +17,25 @@ export default defineConfig({
     { name: "desktop", use: { viewport: { width: 1440, height: 1100 } } },
   ],
   webServer: [
-    { command: "node tests/mock-supabase.mjs", url: "http://127.0.0.1:54329/health", reuseExistingServer: false },
-    { command: "npm run start -- --hostname 127.0.0.1 --port 3100", url: "http://127.0.0.1:3100", reuseExistingServer: false, env: { SITE_URL: "http://127.0.0.1:3100", NODE_OPTIONS: "--import ./tests/mock-stripe-preload.mjs", SUPABASE_URL: "http://127.0.0.1:54329", STRIPE_SECRET_KEY: "sk_test_fixture", STRIPE_WEBHOOK_SECRET: "whsec_fixture", STRIPE_LIVE_MODE: "false", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54329", SUPABASE_SERVICE_ROLE_KEY: "test-only-placeholder-key" } },
+    {
+      command: "node tests/mock-supabase.mjs",
+      url: "http://127.0.0.1:54329/health",
+      reuseExistingServer: false,
+    },
+    {
+      command: "npm run start -- --hostname 127.0.0.1 --port 3100",
+      url: "http://127.0.0.1:3100",
+      reuseExistingServer: false,
+      env: {
+        SITE_URL: "http://127.0.0.1:3100",
+        NODE_OPTIONS: "--import ./tests/mock-stripe-preload.mjs",
+        SUPABASE_URL: "http://127.0.0.1:54329",
+        STRIPE_SECRET_KEY: "sk_test_fixture",
+        STRIPE_WEBHOOK_SECRET: "whsec_fixture",
+        STRIPE_LIVE_MODE: "false",
+        NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54329",
+        SUPABASE_SERVICE_ROLE_KEY: "test-only-placeholder-key",
+      },
+    },
   ],
 });

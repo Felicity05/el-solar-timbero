@@ -2,8 +2,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 
-test("real webhook route verifies raw signatures, rejects live events and retries failed fulfillment",()=>{
- const result=spawnSync(process.execPath,["--conditions=react-server","--import","tsx","--input-type=module","-e",`
+test("real webhook route verifies raw signatures, rejects live events and retries failed fulfillment", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--conditions=react-server",
+      "--import",
+      "tsx",
+      "--input-type=module",
+      "-e",
+      `
   import assert from 'node:assert/strict';
   import Stripe from 'stripe';
   import { POST } from './src/app/api/stripe/webhook/route.ts';
@@ -27,6 +35,20 @@ test("real webhook route verifies raw signatures, rejects live events and retrie
   fail=true;assert.equal((await POST(request(body))).status,500);
   const raw=JSON.stringify(body);const signature=stripe.webhooks.generateTestHeaderString({payload:raw,secret:'wrong'});
   assert.equal((await POST(new Request('http://localhost/api/stripe/webhook',{method:'POST',body:raw,headers:{'stripe-signature':signature}}))).status,400);
- `],{encoding:"utf8",env:{...process.env,NEXT_PUBLIC_SUPABASE_URL:"http://127.0.0.1:54329",SUPABASE_URL:"http://127.0.0.1:54329",SUPABASE_SERVICE_ROLE_KEY:"test-only-key",STRIPE_SECRET_KEY:"sk_test_fixture",STRIPE_WEBHOOK_SECRET:"whsec_fixture",STRIPE_LIVE_MODE:"false"}});
- assert.equal(result.status,0,result.stderr||result.stdout);
+ `,
+    ],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54329",
+        SUPABASE_URL: "http://127.0.0.1:54329",
+        SUPABASE_SERVICE_ROLE_KEY: "test-only-key",
+        STRIPE_SECRET_KEY: "sk_test_fixture",
+        STRIPE_WEBHOOK_SECRET: "whsec_fixture",
+        STRIPE_LIVE_MODE: "false",
+      },
+    },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
 });

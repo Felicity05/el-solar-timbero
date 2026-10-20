@@ -1,6 +1,4 @@
-export const referralSources = [
-  "Instagram", "WhatsApp", "Friend / Word of mouth", "Guantanamera", "Dance class / studio", "Other",
-] as const;
+export const referralSources = ["Instagram", "WhatsApp", "Friend / Word of mouth", "Guantanamera", "Dance class / studio", "Other"] as const;
 
 export type RsvpField = "name" | "phone" | "email" | "referralSource" | "giftCardDisclaimerAccepted";
 export type RsvpState = {

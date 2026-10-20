@@ -6,8 +6,32 @@ export type TicketSession =
   | { status: "error"; message: string };
 export type PurchaseStatus = {
   status: "pending" | "paid" | "refunded" | "void";
-  ticket_code: string | null; ticket_status: string | null;
-  event_name: string; event_date: string; starts_at: string; ends_at: string;
-  timezone: string; venue_name: string; venue_address: string;
-  ticket_type: string; amount_cents: number; currency: string;
+  ticket_code: string | null;
+  ticket_status: string | null;
+  ticket_url: string | null;
+  event_name: string;
+  event_date: string;
+  starts_at: string;
+  ends_at: string;
+  timezone: string;
+  venue_name: string;
+  venue_address: string;
+  ticket_type: string;
+  amount_cents: number;
+  currency: string;
+};
+
+export type TicketDisplay = {
+  ticket_code: string;
+  ticket_url: string;
+  event_name: string;
+  event_date: string;
+  starts_at: string;
+  ends_at: string;
+  timezone: string;
+  venue_name: string;
+  venue_address: string;
+  ticket_type: string;
+  amount_cents: number;
+  currency: string;
 };

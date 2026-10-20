@@ -27,11 +27,15 @@
 @custom-variant narrow (@media (max-width: 360px));
 
 @layer base {
-  :root { color-scheme: light; }
-  html { scroll-behavior: smooth; }
+  :root {
+    color-scheme: light;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
 
   body {
-    background: #d6bf98 url('/artwork/paper-grain.svg');
+    background: #d6bf98 url("/artwork/paper-grain.svg");
     color: var(--color-foreground);
     font-family: var(--font-sans);
     line-height: 1.6;
@@ -42,7 +46,12 @@
     color: var(--color-surface);
   }
 
-  a, button, input, select { -webkit-tap-highlight-color: transparent; }
+  a,
+  button,
+  input,
+  select {
+    -webkit-tap-highlight-color: transparent;
+  }
 
   :focus-visible {
     outline: 3px solid var(--color-navy);
@@ -50,7 +59,9 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
+    html {
+      scroll-behavior: auto;
+    }
   }
 }
 
@@ -59,19 +70,17 @@
   .paper-surface {
     background-color: var(--color-background);
     background-image:
-      url('/artwork/paper-grain.svg'),
-      radial-gradient(ellipse at 0 12%, #a45d2430, transparent 48%),
-      radial-gradient(ellipse at 100% 78%, #b7792425, transparent 42%),
+      url("/artwork/paper-grain.svg"), radial-gradient(ellipse at 0 12%, #a45d2430, transparent 48%), radial-gradient(ellipse at 100% 78%, #b7792425, transparent 42%),
       linear-gradient(90deg, #9d64251c, transparent 4%, transparent 96%, #9d642522);
   }
 
   .print-ink {
-    background-image: url('/artwork/ink-grain.svg');
+    background-image: url("/artwork/ink-grain.svg");
   }
 
   .print-ink-text {
     background-color: currentColor;
-    background-image: url('/artwork/ink-grain.svg');
+    background-image: url("/artwork/ink-grain.svg");
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
@@ -89,20 +98,25 @@
     z-index: -1;
     pointer-events: none;
     background-color: var(--print-color, var(--color-primary));
-    background-image: url('/artwork/ink-grain.svg');
+    background-image: url("/artwork/ink-grain.svg");
   }
 
-  @supports (mask-image: url('/artwork/brush-mask.svg')) {
+  @supports (mask-image: url("/artwork/brush-mask.svg")) {
     .print-brush::before {
-      mask-image: url('/artwork/brush-mask.svg');
+      mask-image: url("/artwork/brush-mask.svg");
       mask-size: 100% 100%;
       mask-repeat: no-repeat;
     }
   }
 
   @media (forced-colors: active) {
-    .print-ink-text { background: none; -webkit-text-fill-color: currentColor; }
-    .print-brush { border: 1px solid ButtonText; }
+    .print-ink-text {
+      background: none;
+      -webkit-text-fill-color: currentColor;
+    }
+    .print-brush {
+      border: 1px solid ButtonText;
+    }
   }
 }
 

@@ -145,5 +145,4 @@ Disclaimer tests verify that a future non-promotion RSVP accepts null/null while
 
 References: [Supabase migration CLI](https://supabase.com/docs/reference/cli/supabase-migration-new) and [Supabase RLS and service-role behavior](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
-
 Paid-ticket MVP (additive migration, local setup, security and production checklist): [ticketing documentation](ticketing.md). RSVP remains available for RSVP-mode events.

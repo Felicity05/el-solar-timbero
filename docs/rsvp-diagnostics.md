@@ -48,15 +48,15 @@ Operations distinguish `event.discovery`, `event.lookup`, `rate_limit`, `rsvp.su
 
 Useful diagnostic codes:
 
-| Code | Meaning / next check |
-| --- | --- |
-| `42501` | Authorization/privilege failure; verify the matching API key/stack and RPC EXECUTE grant. Never fix it by adding broad table/browser grants. |
-| `PGRST202` | RPC missing or absent from schema cache; verify the migration on the selected database. |
-| `PGRST301` / `PGRST303` | JWT authentication failure; verify stack and credential. |
-| `MISSING_URL` / `INVALID_URL` / `MISSING_KEY` / `BROWSER_KEY` | Configuration fails before any database call. |
-| `TRANSPORT` | API cannot be reached, request failed, or timeout elapsed. |
-| `INVALID_RESPONSE` | JSON shape mismatch; inspect the logged schema paths/codes and RPC definition. |
-| `UNEXPECTED_RESULT` | Write RPC returned an unrecognized controlled result. |
+| Code                                                          | Meaning / next check                                                                                                                         |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `42501`                                                       | Authorization/privilege failure; verify the matching API key/stack and RPC EXECUTE grant. Never fix it by adding broad table/browser grants. |
+| `PGRST202`                                                    | RPC missing or absent from schema cache; verify the migration on the selected database.                                                      |
+| `PGRST301` / `PGRST303`                                       | JWT authentication failure; verify stack and credential.                                                                                     |
+| `MISSING_URL` / `INVALID_URL` / `MISSING_KEY` / `BROWSER_KEY` | Configuration fails before any database call.                                                                                                |
+| `TRANSPORT`                                                   | API cannot be reached, request failed, or timeout elapsed.                                                                                   |
+| `INVALID_RESPONSE`                                            | JSON shape mismatch; inspect the logged schema paths/codes and RPC definition.                                                               |
+| `UNEXPECTED_RESULT`                                           | Write RPC returned an unrecognized controlled result.                                                                                        |
 
 Raw messages/details, request bodies, attendee fields, API keys, authorization headers, URL query strings and SQL exception text are omitted. Response-validation logs include only field paths and validation codes, not values. Existing diagnostic errors propagate without generating a second reference for the same failure.
 

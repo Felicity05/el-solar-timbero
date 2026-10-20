@@ -62,15 +62,15 @@ Choose a plan appropriate for the site's use: [Vercel Hobby](https://vercel.com/
 
 Use these settings:
 
-| Setting | Value |
-| --- | --- |
-| Framework | Next.js |
-| Root directory | Repository root |
-| Production branch | `main` |
-| Node.js | 24.x |
-| Install command | `npm ci` |
-| Build command | `npm run build` |
-| Output directory | Leave the Next.js default |
+| Setting           | Value                     |
+| ----------------- | ------------------------- |
+| Framework         | Next.js                   |
+| Root directory    | Repository root           |
+| Production branch | `main`                    |
+| Node.js           | 24.x                      |
+| Install command   | `npm ci`                  |
+| Build command     | `npm run build`           |
+| Output directory  | Leave the Next.js default |
 
 The Node version is pinned to `24.x` in `package.json` and `24` in `.nvmrc`; both GitHub Actions jobs read `.nvmrc`. Vercel uses `engines.node` to select Node 24.x even when its dashboard has an older selection. Install/build commands are committed in `vercel.json`, which has no separate Node runtime pin. Dashboard settings and existing deployments are not changed by this repository update. The build uses the project's existing Webpack option. Allow Vercel to use its normal Next.js runtime; no static export or custom output directory is needed. The server action needs a running server function.
 
@@ -82,11 +82,11 @@ Sources: [Vercel GitHub deployment](https://vercel.com/docs/git/vercel-for-githu
 
 Add these variables to the **Production** environment on the import screen or under **Settings → Environment Variables**:
 
-| Name | Production value | Purpose |
-| --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Your real hosted Supabase project URL | Selects the database API endpoint; the URL is public. |
+| Name                        | Production value                            | Purpose                                                                       |
+| --------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`  | Your real hosted Supabase project URL       | Selects the database API endpoint; the URL is public.                         |
 | `SUPABASE_SERVICE_ROLE_KEY` | The service role key from that same project | Authorizes server-side inserts and rate-limit RPC calls. Keep it server-only. |
-| `SITE_URL` | `https://elsolartimbero.com` | Sets the base URL for social/share metadata. |
+| `SITE_URL`                  | `https://elsolartimbero.com`                | Sets the base URL for social/share metadata.                                  |
 
 Use the real Supabase URL, never `http://127.0.0.1:54329`; that address is for local browser tests. Enable Vercel's automatic system environment variables if the setting is offered so `VERCEL=1` is available to the server. The app then uses Vercel's IP header for the shared rate limiter. Do not configure `RSVP_TRUSTED_IP_HEADER` for Vercel.
 
@@ -132,11 +132,11 @@ Open **Vercel project → Settings → Domains**. Add `elsolartimbero.com`, then
 
 Vercel will show the **exact DNS records for this project**. At your existing DNS provider, copy those values:
 
-| Domain | Typical record type | Host/name |
-| --- | --- | --- |
-| `elsolartimbero.com` | A (use the type Vercel actually displays) | `@` or the provider's root-domain form |
-| `www.elsolartimbero.com` | CNAME | `www` |
-| Ownership verification, if requested | TXT | Exact name displayed by Vercel |
+| Domain                               | Typical record type                       | Host/name                              |
+| ------------------------------------ | ----------------------------------------- | -------------------------------------- |
+| `elsolartimbero.com`                 | A (use the type Vercel actually displays) | `@` or the provider's root-domain form |
+| `www.elsolartimbero.com`             | CNAME                                     | `www`                                  |
+| Ownership verification, if requested | TXT                                       | Exact name displayed by Vercel         |
 
 Use the values shown by Vercel rather than an old IP address or CNAME copied from a tutorial. Replace conflicting web records for these names while preserving mail records (MX and SPF/DKIM/DMARC TXT). You can keep your existing registrar and nameservers; a transfer to Vercel is unnecessary. If Cloudflare manages DNS, start with these web records set to DNS-only while validating Vercel.
 

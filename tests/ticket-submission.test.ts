@@ -94,7 +94,14 @@ test("ticket submission supports both database migrations and never cancels with
   `;
   const result = spawnSync(process.execPath, ["--conditions=react-server", "--import", "tsx", "--input-type=module", "-e", script], {
     encoding: "utf8",
-    env: { ...process.env, SUPABASE_URL: "http://127.0.0.1:54329", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54329", SUPABASE_SERVICE_ROLE_KEY: "test-only-placeholder-key", STRIPE_SECRET_KEY: "sk_test_fixture", STRIPE_LIVE_MODE: "false" },
+    env: {
+      ...process.env,
+      SUPABASE_URL: "http://127.0.0.1:54329",
+      NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54329",
+      SUPABASE_SERVICE_ROLE_KEY: "test-only-placeholder-key",
+      STRIPE_SECRET_KEY: "sk_test_fixture",
+      STRIPE_LIVE_MODE: "false",
+    },
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });

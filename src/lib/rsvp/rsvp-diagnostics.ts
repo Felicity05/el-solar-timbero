@@ -26,9 +26,11 @@ const hints: Record<string, string> = {
 };
 
 export class RsvpDiagnosticError extends Error {
-  constructor(public readonly reference: string,
+  constructor(
+    public readonly reference: string,
     public readonly operation: DiagnosticContext["operation"],
-    public readonly stage: DiagnosticContext["stage"]) {
+    public readonly stage: DiagnosticContext["stage"],
+  ) {
     super("RSVP service unavailable");
     this.name = "RsvpDiagnosticError";
   }
@@ -40,18 +42,22 @@ export function reportRsvpFailure(context: DiagnosticContext): RsvpDiagnosticErr
   const reference = randomUUID();
   const code = context.code && /^[A-Z0-9_]{1,40}$/.test(context.code) ? context.code : "UNKNOWN";
   console.error("[rsvp]", {
-    event: "rsvp.failure", reference, operation: context.operation, stage: context.stage,
-    code, status: context.status, rpc: context.rpc, host: context.host,
-    keyType: context.keyType, issues: context.issues,
+    event: "rsvp.failure",
+    reference,
+    operation: context.operation,
+    stage: context.stage,
+    code,
+    status: context.status,
+    rpc: context.rpc,
+    host: context.host,
+    keyType: context.keyType,
+    issues: context.issues,
     hint: hints[code] ?? "Inspect the named operation/stage and database definition. Raw database messages are deliberately omitted.",
   });
   return new RsvpDiagnosticError(reference, context.operation, context.stage);
 }
 
-export function rsvpDebug(context: {
-  operation: RsvpOperation; stage: "start" | "complete";
-  rpc: string; status?: number; durationMs?: number;
-}) {
+export function rsvpDebug(context: { operation: RsvpOperation; stage: "start" | "complete"; rpc: string; status?: number; durationMs?: number }) {
   if (process.env.RSVP_DEBUG === "true") console.info("[rsvp]", { event: "rsvp.debug", ...context });
 }
 

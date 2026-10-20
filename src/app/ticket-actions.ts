@@ -10,21 +10,43 @@ export async function initializeTicket(eventSlug: string, credential: string, fo
     return { status: "error", message: "Please refresh and try again." };
   }
   const buyer = validateRsvp(formData, false);
-  if (!buyer.success) return { status: "error", message: buyer.error.issues[0]?.message ?? "Check your attendee details." };
+  if (!buyer.success)
+    return {
+      status: "error",
+      message: buyer.error.issues[0]?.message ?? "Check your attendee details.",
+    };
   try {
-    const ip = clientIp(await headers(), { vercel: process.env.VERCEL, trustedHeader: process.env.RSVP_TRUSTED_IP_HEADER });
-    for (const [scope, value] of [["global", "all"], ["ip", ip], ["phone", buyer.data.phone]] as const) {
+    const ip = clientIp(await headers(), {
+      vercel: process.env.VERCEL,
+      trustedHeader: process.env.RSVP_TRUSTED_IP_HEADER,
+    });
+    for (const [scope, value] of [
+      ["global", "all"],
+      ["ip", ip],
+      ["phone", buyer.data.phone],
+    ] as const) {
       const retry = await ticketRpc("consume_rsvp_rate_limit", {
-        p_scope: scope, p_key_hash: rateLimitKey(scope, value, process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""),
+        p_scope: scope,
+        p_key_hash: rateLimitKey(scope, value, process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""),
       });
       if (typeof retry !== "number") throw new Error("Rate limiter unavailable");
-      if (retry > 0) return { status: "error", message: "Too many attempts. Please wait a few minutes and try again." };
+      if (retry > 0)
+        return {
+          status: "error",
+          message: "Too many attempts. Please wait a few minutes and try again.",
+        };
     }
     return await initializePurchase(eventSlug, buyer.data, credential);
-  } catch (error) { return { status: "error", message: ticketFailure("initialize", error) }; }
+  } catch (error) {
+    return { status: "error", message: ticketFailure("initialize", error) };
+  }
 }
 export async function ticketStatus(eventSlug: string, credential: string): Promise<PurchaseStatus | null> {
   if (!accessSchema.safeParse(credential).success) return null;
-  try { return await readPurchase(eventSlug, credential); }
-  catch (error) { ticketFailure("status", error); return null; }
+  try {
+    return await readPurchase(eventSlug, credential);
+  } catch (error) {
+    ticketFailure("status", error);
+    return null;
+  }
 }

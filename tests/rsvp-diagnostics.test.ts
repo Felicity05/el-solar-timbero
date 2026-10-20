@@ -61,8 +61,14 @@ test("server diagnostics identify RPC, transport, schema and config failures wit
     assert.ok(info.some(entry=>entry.stage==='complete'));
   `;
   const result = spawnSync(process.execPath, ["--conditions=react-server", "--import", "tsx", "--input-type=module", "-e", script], {
-    encoding: "utf8", env: { ...process.env, SUPABASE_URL: "http://127.0.0.1:54321",
-      SUPABASE_SERVICE_ROLE_KEY: "sb_secret_DO_NOT_LOG_THIS_KEY", RSVP_ENABLED: "true", RSVP_DEBUG: "true" },
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      SUPABASE_URL: "http://127.0.0.1:54321",
+      SUPABASE_SERVICE_ROLE_KEY: "sb_secret_DO_NOT_LOG_THIS_KEY",
+      RSVP_ENABLED: "true",
+      RSVP_DEBUG: "true",
+    },
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
