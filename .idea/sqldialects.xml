@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="SqlDialectMappings">
-    <file url="file://$PROJECT_DIR$/supabase/migrations/20260929170927_create_rsvps.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/supabase/migrations/20261019160523_normalize_recurring_events.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/supabase/migrations/20261019203757_normalized_rsvp_submission.sql" dialect="PostgreSQL" />
-    <file url="file://$PROJECT_DIR$/supabase/seed.sql" dialect="PostgreSQL" />
-  </component>
-</project>
