@@ -101,7 +101,7 @@ Event dates, timestamps, and venue metadata must be confirmed during legacy back
 
 Keep time-dependent registration eligibility in the trusted submission operation, not a check constraint involving the current time. For this scope, registration requires a published event, `rsvp_open = true`, and submission before `starts_at`. The operation must coordinate with event closure so concurrent submissions cannot bypass a committed closure.
 
-The server resolves an allowed event to its UUID and checks its availability. A browser-supplied event identifier is never sufficient authorization. Slugs serve routing and lookup; foreign keys use event UUIDs so URL changes do not break relationships.
+The server discovers all published/open/future events through the restricted discovery RPC, ordered by start time and UUID. The homepage defaults to the next event and provides links to the others. No hardcoded or environment-selected event slug is needed. A form is bound server-side to its displayed event; its Server Action and the transactional RPC revalidate eligibility. Browser selection is navigation, never authorization. Slugs serve routing and lookup; foreign keys use event UUIDs so URL changes do not break relationships.
 
 ## RSVPs and historical information
 

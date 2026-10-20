@@ -29,6 +29,12 @@ try {
       values (${literal(prefix+name)},'LOCAL ONLY — Integration Test',current_date+365,(current_date+365)::timestamp at time zone 'UTC',
       (current_date+366)::timestamp at time zone 'UTC','UTC','Local','LOCAL ONLY',${literal(status)},${open},${literal(promotion)});`);
   }
+  await check('discovery includes all eligible events and excludes closed/completed events', async () => {
+    const events = JSON.parse((await sql('set role service_role; select public.get_available_rsvp_events()')).split('\n').at(-1));
+    const discovered = events.filter(event=>event.slug.startsWith(prefix)).map(event=>event.slug);
+    assert.ok(discovered.includes(prefix+'first') && discovered.includes(prefix+'second'));
+    assert.ok(!discovered.includes(prefix+'closed') && !discovered.includes(prefix+'completed'));
+  });
   await check('new phone creates one contact and RSVP; no promotion stores null/null', async () => {
     assert.equal(await submit('first'), 'success');
     assert.equal(await sql(`select count(*) from public.contacts where phone=${literal(phone)}`), '1');
@@ -82,6 +88,7 @@ try {
       assert.equal(await sql(`select count(*) from (values ('public.contacts'),('public.events'),('public.rsvps')) t(n)
         where has_table_privilege('${role}',n,'SELECT') or has_table_privilege('${role}',n,'INSERT') or has_table_privilege('${role}',n,'UPDATE') or has_table_privilege('${role}',n,'DELETE')`), '0');
       if(role!=='service_role') {
+        await assert.rejects(sql(`set role ${role}; select public.get_available_rsvp_events()`));
         await assert.rejects(sql(`set role ${role}; select public.get_rsvp_event(${literal(prefix+'first')})`));
         await assert.rejects(sql(`set role ${role}; select public.submit_normalized_rsvp(${[prefix+'first','Local Test','local@example.com',phone,'Instagram',false,null].map(literal).join(',')})`));
       }

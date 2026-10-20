@@ -1,3 +1,4 @@
+import { reportRsvpFailure, RsvpDiagnosticError, diagnosticReference } from "./rsvp-diagnostics";
 import { validateRsvp } from "./rsvp-validation";
 import { type RsvpField, type RsvpState } from "./rsvp";
 import type { RateLimitScope } from "./rsvp-rate-limit";
@@ -58,12 +59,18 @@ export async function processRsvp(formData: FormData, ip: string, dependencies: 
       return { status: "error", message: "The event notice has changed. Please reload and review it before submitting." };
     }
     if (error || data !== "success") {
-      console.error("RSVP operation failed", { code: error?.code });
-      return { status: "error", message: "We couldn’t save your RSVP. Please reload and try again, or contact @elsolartimbero on Instagram." };
+      const failure = reportRsvpFailure({ operation: "rsvp.submit", rpc: "submit_normalized_rsvp",
+        stage: error ? "rpc" : "unexpected_result", code: error?.code ?? "UNEXPECTED_RESULT" });
+      return { status: "error", message: "We couldn’t save your RSVP. Please reload and try again, or contact @elsolartimbero on Instagram." + diagnosticReference(failure) };
     }
     return { status: "success" };
-  } catch {
-    console.error("RSVP submission protection or database unavailable");
-    return { status: "error", message: "We couldn’t connect to save your RSVP. Your details are still here—please try again shortly." };
+  } catch (error) {
+    const failure = error instanceof RsvpDiagnosticError ? error : reportRsvpFailure({
+      operation: "rsvp.submit", stage: "unexpected_result", code: "UNKNOWN",
+    });
+    if (failure.operation === "rsvp.submit" && failure.stage === "rpc") {
+      return { status: "error", message: "We couldn’t save your RSVP. Your details are still here—please try again shortly." + diagnosticReference(failure) };
+    }
+    return { status: "error", message: "We couldn’t connect to save your RSVP. Your details are still here—please try again shortly." + diagnosticReference(failure) };
   }
 }

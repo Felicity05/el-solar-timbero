@@ -1,4 +1,7 @@
+import type { RsvpEvent } from "@/lib/rsvp-event";
+
 type EventDetailsProps = {
+  event: RsvpEvent;
   variant?: "hero" | "result";
   fullDate?: boolean;
 };
@@ -12,7 +15,24 @@ const titleClassName =
 const descriptionClassName =
   "mt-1 block font-sans text-[12px] leading-[1.35] normal-case mobile:text-[10px]";
 
-export default function EventDetails({ variant = "hero", fullDate = false }: EventDetailsProps) {
+export default function EventDetails({ event, variant = "hero", fullDate = false }: EventDetailsProps) {
+  // Calendar dates are formatted in UTC so the browser/server timezone cannot
+  // shift them. Start/end instants are formatted in the event's own timezone.
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    weekday: "long", month: "short", day: "numeric",
+    ...(fullDate ? { year: "numeric" } : {}), timeZone: "UTC",
+  }).format(new Date(`${event.event_date}T12:00:00Z`));
+  const timeFormat = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric", minute: "2-digit", timeZone: event.timezone,
+  });
+  const startTime = timeFormat.format(new Date(event.starts_at));
+  const endTime = timeFormat.format(new Date(event.ends_at));
+  const timeLabel = `${startTime} – ${endTime}PM`;
+  const compactStart = startTime.replace(/:00\b/g, "");
+  const compactEnd = endTime.replace(/:00\b/g, "");
+  const samePeriod = startTime.slice(-2) === endTime.slice(-2);
+  const compactTimeLabel = `${samePeriod ? compactStart.replace(/\s[AP]M$/, "") : compactStart}–${compactEnd}`;
+  const [streetAddress, ...addressParts] = event.venue_address.split(",");
   const placementClassName = variant === "hero"
     ? "tablet:flex-wrap tablet:gap-x-0 tablet:gap-y-[13px] tablet:flex-col tablet:items-start"
     : "justify-center mobile:-mx-[5px]";
@@ -24,8 +44,9 @@ export default function EventDetails({ variant = "hero", fullDate = false }: Eve
           <rect x="3" y="5" width="18" height="16" rx="1" />
           <path d="M7 2v6m10-6v6M3 11h18M7 15h3m4 0h3M7 18h3" />
         </svg>
-        <p className={titleClassName}>{fullDate ? <time dateTime="2026-10-12">Monday, Oct 12, 2026</time> : "Monday, Oct 12"}
-          {fullDate ? <span className="mt-1 block text-[19px] mobile:text-[16px]">8:00 PM – 11:30 PM</span> : <time className="block text-[22px] mobile:whitespace-nowrap mobile:text-[16px]" dateTime="2026-10-12">8–11:30 PM</time>}
+        <p className={titleClassName}>{fullDate ? <time dateTime={event.event_date}>{dateLabel}</time> : dateLabel}
+          {fullDate ? <span className="mt-1 block text-[19px] mobile:text-[16px]">{timeLabel}</span> :
+              <time className="block text-[22px] mobile:whitespace-nowrap mobile:text-[16px]" dateTime={event.event_date}>{compactTimeLabel}</time>}
         </p>
       </div>
       <div className={`event-location ${itemClassName} border-r-2 border-border h-[45.8px] tablet:border-none tablet:pl-0` }>
@@ -43,7 +64,7 @@ export default function EventDetails({ variant = "hero", fullDate = false }: Eve
           <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" />
           <circle cx="12" cy="10" r="2.5" />
         </svg>
-        <p className={titleClassName}>Guantanamera<span className={descriptionClassName}>939 8th Ave<br />New York, NY 10019</span></p>
+        <p className={titleClassName}>{event.venue_name}<span className={descriptionClassName}>{streetAddress.trim()}<br />{addressParts.join(",").trim()}</span></p>
       </div>
     </div>
   );

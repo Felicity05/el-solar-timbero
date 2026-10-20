@@ -20,9 +20,11 @@ The normalized model is `contacts` + `events` + `rsvps`. Contacts are unique by 
 
 Direct table access is revoked from browser roles and service_role. The server calls the narrowly scoped `submit_normalized_rsvp` RPC for atomic event validation, contact resolution, RSVP insertion and profile update. A separate restricted read RPC supplies current event details. Promotion acknowledgment is required only when that event has a supported disclosure version; other RSVPs store null/null.
 
-Set server-only `RSVP_ENABLED=true` and `RSVP_EVENT_SLUG` to an explicitly configured event. The database independently requires published/open/future status. Missing settings, unsupported disclosure versions or unavailable RPCs fail closed. The service key must remain server-only. Optional private `SUPABASE_URL` overrides the build-inlined public URL for local/runtime server configuration.
+Events are discovered dynamically from the database: published, RSVP-open and future events appear in start-time order. The homepage defaults to the next event and lists other available occurrences for selection. No `RSVP_EVENT_SLUG` configuration is used. Optional `RSVP_ENABLED=false` is an emergency global stop; otherwise database state controls availability. Unsupported disclosure versions are not offered, and database failures show a separate availability error. The transactional RPC independently rechecks eligibility at submission. The service key must remain server-only. Optional private `SUPABASE_URL` overrides the build-inlined public URL for local/runtime server configuration.
 
-See [the schema](docs/database.md) and [the implementation/local-testing guide](docs/rsvp-submission.md). The normalization migration has been applied by the owner; the follow-up RPC migration was tested only locally. Do not deploy this app against a database missing the new RPCs. No remote migration or deployment is performed by these changes.
+See [the schema](docs/database.md) and [the implementation/local-testing guide](docs/rsvp-submission.md). The normalization migration has been applied by the owner; the submission and discovery RPC migrations were tested only locally. Do not deploy this app against a database missing the new RPCs. No remote migration or deployment is performed by these changes.
+
+For authentication failures, missing RPCs, transport errors and malformed responses, see [RSVP diagnostics](docs/rsvp-diagnostics.md). Error pages include a reference ID for the matching server log. Optional `RSVP_DEBUG=true` enables safe RPC timing logs.
 
 ## Verification
 

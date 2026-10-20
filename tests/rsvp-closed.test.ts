@@ -17,7 +17,7 @@ test("the server action rejects valid and forged submissions before request or d
      }]) {
        const data = new FormData();
        for (const [key, value] of Object.entries(fields)) data.set(key, value);
-       const state = await submitRsvp({ status: 'idle' }, data);
+       const state = await submitRsvp('forged-event', { status: 'idle' }, data);
        assert.equal(state.status, 'error');
        assert.match(state.message, /RSVPs are now closed/);
        assert.equal(state.errors, undefined);
