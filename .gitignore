@@ -44,3 +44,6 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /supabase/.temp/
+
+#terminal theme
+/powerlevel10k/
