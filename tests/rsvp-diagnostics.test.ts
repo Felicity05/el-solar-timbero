@@ -5,9 +5,9 @@ import { spawnSync } from "node:child_process";
 test("server diagnostics identify RPC, transport, schema and config failures without leaking sensitive data", () => {
   const script = `
     import assert from 'node:assert/strict';
-    import { callRsvpRpc } from './src/lib/rsvp-rpc.ts';
-    import { getAvailableRsvpEvents, getRsvpEventForSubmission } from './src/lib/rsvp-event.ts';
-    import { RsvpDiagnosticError } from './src/lib/rsvp-diagnostics.ts';
+    import { callRsvpRpc } from './src/lib/rsvp/rsvp-rpc.ts';
+    import { getAvailableRsvpEvents, getRsvpEventForSubmission } from './src/lib/rsvp/rsvp-event.ts';
+    import { RsvpDiagnosticError } from './src/lib/rsvp/rsvp-diagnostics.ts';
     const errors = []; const info = [];
     console.error = (_tag, entry) => errors.push(entry);
     console.info = (_tag, entry) => info.push(entry);
@@ -61,8 +61,14 @@ test("server diagnostics identify RPC, transport, schema and config failures wit
     assert.ok(info.some(entry=>entry.stage==='complete'));
   `;
   const result = spawnSync(process.execPath, ["--conditions=react-server", "--import", "tsx", "--input-type=module", "-e", script], {
-    encoding: "utf8", env: { ...process.env, SUPABASE_URL: "http://127.0.0.1:54321",
-      SUPABASE_SERVICE_ROLE_KEY: "sb_secret_DO_NOT_LOG_THIS_KEY", RSVP_ENABLED: "true", RSVP_DEBUG: "true" },
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      SUPABASE_URL: "http://127.0.0.1:54321",
+      SUPABASE_SERVICE_ROLE_KEY: "sb_secret_DO_NOT_LOG_THIS_KEY",
+      RSVP_ENABLED: "true",
+      RSVP_DEBUG: "true",
+    },
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });

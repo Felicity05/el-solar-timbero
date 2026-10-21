@@ -12,17 +12,17 @@ Live testing used 26 form POSTs across two rate windows, a small set of public-a
 
 **Severity: Medium. Evidence: reproduced locally against the reviewed submission flow; not flooded on production.**
 
-In `src/lib/rsvp-submit.ts`, `processRsvp` consumes the global allowance before checking the IP allowance. Requests already blocked by the IP limit therefore still increment the shared global counter. This makes a single source capable of exhausting the 100-attempt/minute allowance and temporarily denying RSVPs to other IPs. Sustained requests can repeat the effect as the global window renews. A hosting firewall might reduce the attack, but its configuration was not verified.
+In `src/lib/rsvp/rsvp-submit.ts`, `processRsvp` consumes the global allowance before checking the IP allowance. Requests already blocked by the IP limit therefore still increment the shared global counter. This makes a single source capable of exhausting the 100-attempt/minute allowance and temporarily denying RSVPs to other IPs. Sustained requests can repeat the effect as the global window renews. A hosting firewall might reduce the attack, but its configuration was not verified.
 
 The local reproduction exercised the actual `processRsvp` function with deterministic counter dependencies and invalid form data. It made **zero network requests**:
 
-| Observation | Result |
-| --- | --- |
-| Attempts from one simulated source | 100 |
-| Attempts reaching validation | 10 |
-| Attempts denied by limits | 90 |
-| Shared counter after a request from a different simulated source | 101 |
-| Different source's result | `Too many RSVP attempts. Please try again in 1 minute.` |
+| Observation                                                      | Result                                                  |
+| ---------------------------------------------------------------- | ------------------------------------------------------- |
+| Attempts from one simulated source                               | 100                                                     |
+| Attempts reaching validation                                     | 10                                                      |
+| Attempts denied by limits                                        | 90                                                      |
+| Shared counter after a request from a different simulated source | 101                                                     |
+| Different source's result                                        | `Too many RSVP attempts. Please try again in 1 minute.` |
 
 Live IP limits were independently confirmed: the 11th attempt was blocked. Spoofing `x-forwarded-for`, `x-vercel-forwarded-for`, and `x-real-ip` did not bypass that block. The issue is shared-allowance accounting, not a demonstrated IP-header bypass.
 
@@ -48,27 +48,27 @@ Source: [MDN frame-ancestors reference](https://developer.mozilla.org/en-US/docs
 
 ## Controls that passed
 
-| Control | Evidence |
-| --- | --- |
-| HTTPS | HTTP redirected to HTTPS; HTTPS returned HSTS with a 63,072,000-second max age. |
-| Atomic event/phone uniqueness | Two concurrent submissions and a normalized-phone retry produced exactly one synthetic row. Hosted constraint was `UNIQUE (event_slug, phone)`. |
-| Existing records preserved | The test row retained its original email after retries using another email. |
-| Trusted event/disclaimer | Posted forged event, disclaimer, timestamp, and eligibility values were ignored; the synthetic row contained the expected event and disclaimer version. |
-| Phone normalization | The synthetic row stored `+12025550100`; alternate phone spellings reached the duplicate view. |
-| Required acknowledgment | An unchecked notice returned its field error; no new row was created. |
-| Validation | Script-like name, SQL-like phone, unsupported referral, invalid phone, and binary-name probes returned validation errors. The initial batch's field-error observations were checked against the server validator; tests did not demonstrate SQL injection or executable reflected/stored XSS. |
-| Honeypot | An empty first `website` value followed by a populated value was rejected; the visible response was rechecked separately. |
-| IP limit | The 11th counted attempt was blocked; forwarded-IP spoofing and a request without Origin did not bypass the active block. |
-| Phone limit | After expiry of the initial windows, five duplicate attempts succeeded as duplicate responses; the sixth was limited even with alternate phone formats. |
-| Origin check | A mismatched Origin was rejected with HTTP 500 and a generic production error, without a server stack. A 500 is framework error handling, not evidence that the request reached an insert. |
-| Request-size bound | A single multipart body just over 1 MiB was rejected with a generic HTTP 500; no server stack was returned. No repeated large-body test was performed. |
-| Anonymous RSVP read/insert | Both Data API probes returned `401`, PostgreSQL code `42501`, and permission-denied errors. The read probe requested zero rows; the insert probe intentionally lacked required values. |
-| Anonymous limiter RPC | Invalid-scope probe was denied with `401` / `42501` before function execution. |
-| Private counter schema | Data API rejected the schema with `406` / `PGRST106`; it is not exposed. |
-| Least privilege | SQL metadata confirmed no RSVP access or limiter RPC execution for `anon`/`authenticated`. `service_role` had RSVP INSERT and limiter execution, without RSVP SELECT/UPDATE/DELETE. |
-| RLS/function security | Both tables had RLS enabled. The limiter was SECURITY INVOKER with an empty configured search path. |
-| Secret/source exposure | No service-role JWT, modern `sb_secret_` credential, or private-key marker was found in homepage HTML and seven inspected JS bundles. `.env`, `.env.development.local`, `.git/config`, and the server-action source path returned 404. No source map was retrieved. |
-| Dependency advisories | `npm audit --omit=dev --audit-level=high` completed with zero reported vulnerabilities for the local lockfile. This does not independently attest to the deployed build's dependency tree. |
+| Control                       | Evidence                                                                                                                                                                                                                                                                                      |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTPS                         | HTTP redirected to HTTPS; HTTPS returned HSTS with a 63,072,000-second max age.                                                                                                                                                                                                               |
+| Atomic event/phone uniqueness | Two concurrent submissions and a normalized-phone retry produced exactly one synthetic row. Hosted constraint was `UNIQUE (event_slug, phone)`.                                                                                                                                               |
+| Existing records preserved    | The test row retained its original email after retries using another email.                                                                                                                                                                                                                   |
+| Trusted event/disclaimer      | Posted forged event, disclaimer, timestamp, and eligibility values were ignored; the synthetic row contained the expected event and disclaimer version.                                                                                                                                       |
+| Phone normalization           | The synthetic row stored `+12025550100`; alternate phone spellings reached the duplicate view.                                                                                                                                                                                                |
+| Required acknowledgment       | An unchecked notice returned its field error; no new row was created.                                                                                                                                                                                                                         |
+| Validation                    | Script-like name, SQL-like phone, unsupported referral, invalid phone, and binary-name probes returned validation errors. The initial batch's field-error observations were checked against the server validator; tests did not demonstrate SQL injection or executable reflected/stored XSS. |
+| Honeypot                      | An empty first `website` value followed by a populated value was rejected; the visible response was rechecked separately.                                                                                                                                                                     |
+| IP limit                      | The 11th counted attempt was blocked; forwarded-IP spoofing and a request without Origin did not bypass the active block.                                                                                                                                                                     |
+| Phone limit                   | After expiry of the initial windows, five duplicate attempts succeeded as duplicate responses; the sixth was limited even with alternate phone formats.                                                                                                                                       |
+| Origin check                  | A mismatched Origin was rejected with HTTP 500 and a generic production error, without a server stack. A 500 is framework error handling, not evidence that the request reached an insert.                                                                                                    |
+| Request-size bound            | A single multipart body just over 1 MiB was rejected with a generic HTTP 500; no server stack was returned. No repeated large-body test was performed.                                                                                                                                        |
+| Anonymous RSVP read/insert    | Both Data API probes returned `401`, PostgreSQL code `42501`, and permission-denied errors. The read probe requested zero rows; the insert probe intentionally lacked required values.                                                                                                        |
+| Anonymous limiter RPC         | Invalid-scope probe was denied with `401` / `42501` before function execution.                                                                                                                                                                                                                |
+| Private counter schema        | Data API rejected the schema with `406` / `PGRST106`; it is not exposed.                                                                                                                                                                                                                      |
+| Least privilege               | SQL metadata confirmed no RSVP access or limiter RPC execution for `anon`/`authenticated`. `service_role` had RSVP INSERT and limiter execution, without RSVP SELECT/UPDATE/DELETE.                                                                                                           |
+| RLS/function security         | Both tables had RLS enabled. The limiter was SECURITY INVOKER with an empty configured search path.                                                                                                                                                                                           |
+| Secret/source exposure        | No service-role JWT, modern `sb_secret_` credential, or private-key marker was found in homepage HTML and seven inspected JS bundles. `.env`, `.env.development.local`, `.git/config`, and the server-action source path returned 404. No source map was retrieved.                           |
+| Dependency advisories         | `npm audit --omit=dev --audit-level=high` completed with zero reported vulnerabilities for the local lockfile. This does not independently attest to the deployed build's dependency tree.                                                                                                    |
 
 Supabase security advisors reported only INFO-level “RLS enabled, no policy” entries for the two intentionally server-only tables. Given their verified revoked browser grants and service-role architecture, these entries do not require adding public policies. See [Supabase's advisor reference](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
 

@@ -20,7 +20,7 @@ The normalized model is `contacts` + `events` + `rsvps`. Contacts are unique by 
 
 Direct table access is revoked from browser roles and service_role. The server calls the narrowly scoped `submit_normalized_rsvp` RPC for atomic event validation, contact resolution, RSVP insertion and profile update. A separate restricted read RPC supplies current event details. Promotion acknowledgment is required only when that event has a supported disclosure version; other RSVPs store null/null.
 
-Events are discovered dynamically from the database: published, RSVP-open and future events appear in start-time order. The homepage defaults to the next event and lists other available occurrences for selection. No `RSVP_EVENT_SLUG` configuration is used. Optional `RSVP_ENABLED=false` is an emergency global stop; otherwise database state controls availability. Unsupported disclosure versions are not offered, and database failures show a separate availability error. The transactional RPC independently rechecks eligibility at submission. The service key must remain server-only. Optional private `SUPABASE_URL` overrides the build-inlined public URL for local/runtime server configuration.
+Events are discovered dynamically from the database: published/future RSVP events with rsvp_open and ticketed events with open sales/an active ticket type appear in start-time order. The homepage defaults to the next event and lists other available occurrences for selection. No `RSVP_EVENT_SLUG` configuration is used. Optional `RSVP_ENABLED=false` is an emergency RSVP stop; paid sales use events.ticket_sales_open; otherwise database state controls availability. Unsupported disclosure versions are not offered, and database failures show a separate availability error. The transactional RPC independently rechecks eligibility at submission. The service key must remain server-only. Optional private `SUPABASE_URL` overrides the build-inlined public URL for local/runtime server configuration.
 
 See [the schema](docs/database.md) and [the implementation/local-testing guide](docs/rsvp-submission.md). The normalization migration has been applied by the owner; the submission and discovery RPC migrations were tested only locally. Do not deploy this app against a database missing the new RPCs. No remote migration or deployment is performed by these changes.
 
@@ -47,7 +47,7 @@ For Macs where Playwright's bundled Chromium is unsupported, use an installed Ch
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:e2e
 ```
 
-The production build uses Next.js's supported Webpack option because Turbopack's internal worker port failed in this local environment. For the same issue during development, run `npm run dev -- --webpack`. `next/font/google` needs build-time network access; fonts are served locally to visitors.
+Development and production builds use Next.js's supported Webpack option. This avoids the Turbopack Google Fonts resolver error (`@vercel/turbopack-next/internal/font/google/font`) seen with Next.js 16.3.8; plain `npm run dev` already selects Webpack. `next/font/google` needs compilation-time network access; fonts are served locally to visitors.
 
 ## Deploy to Vercel
 
@@ -74,16 +74,16 @@ There is no custom admin UI. Review RSVPs in the Supabase dashboard. No confirma
 
 ### Where to make UI changes
 
-| Area | Component files in `src/components` |
-| --- | --- |
-| Header and footer | `layout/SiteHeader.tsx`, `layout/SiteFooter.tsx` |
-| Hero artwork and title | `event/EventHero.tsx` |
-| Date, time, and venue shared by all views | `event/EventDetails.tsx` |
-| Conga artwork and cultural text | `event/BrandPanel.tsx` |
-| Form fields and error markup | `rsvp/RsvpForm.tsx` |
-| Submission flow and focus | `rsvp/RsvpExperience.tsx` |
-| Success and duplicate presentation | `rsvp/RsvpResult.tsx` |
-| Repeated Instagram CTA | `shared/InstagramLink.tsx` |
+| Area                                      | Component files in `src/components`              |
+| ----------------------------------------- | ------------------------------------------------ |
+| Header and footer                         | `layout/SiteHeader.tsx`, `layout/SiteFooter.tsx` |
+| Hero artwork and title                    | `event/EventHero.tsx`                            |
+| Date, time, and venue shared by all views | `event/EventDetails.tsx`                         |
+| Conga artwork and cultural text           | `event/BrandPanel.tsx`                           |
+| Form fields and error markup              | `rsvp/RsvpForm.tsx`                              |
+| Submission flow and focus                 | `rsvp/RsvpExperience.tsx`                        |
+| Success and duplicate presentation        | `rsvp/RsvpResult.tsx`                            |
+| Repeated Instagram CTA                    | `shared/InstagramLink.tsx`                       |
 
 Component styling lives in Tailwind classes alongside its markup, including responsive and interaction states. `src/app/globals.css` contains Tailwind setup, shared theme tokens/responsive variants, base accessibility styles, and the reusable print treatments: `paper-surface`, `print-ink`, `print-ink-text`, and `print-brush`. The brush treatment masks only its background pseudo-element, preserving text, hit areas, and focus outlines. `--print-color` sets its ink color. Three small SVGs provide paper grain, ink wear, and the brush edge; large artwork stays in responsive Next.js Images. Only the hero-specific scenic fade remains in `EventHero.module.css`. Event details retain `event-date`, `event-time`, and `event-location` names; the `variant` prop controls hero/result layout without parent selectors reaching into the component. Keep authoritative event/disclaimer values in the existing server flow, not in component props submitted by the browser.
 
@@ -94,3 +94,5 @@ Counters live in `rsvp_private.rsvp_rate_limits` with RLS and no browser access.
 On Vercel, the server reads `x-vercel-forwarded-for` only when `VERCEL=1` is set by the platform. On another host, configure `RSVP_TRUSTED_IP_HEADER` only after ensuring your trusted reverse proxy overwrites that header and the origin cannot be accessed directly. Missing, invalid, or multi-IP values use one shared `unknown` bucket instead of trusting spoofable client headers. Direct local development and browser tests use that shared bucket. Keep `VERCEL` unset outside Vercel. See [Vercel request headers](https://vercel.com/docs/headers/request-headers).
 
 The honeypot rejects populated fields, including repeated values. The form disables controls while pending, and the database unique constraint prevents concurrent requests from creating duplicate RSVPs or overwriting existing ones. Rate limits reduce automated spam but do not prove phone ownership or stop distributed bots submitting below the limits. Hosting firewall/bot protection can reject flood traffic before it reaches the application/database. The explicit duplicate response can reveal whether a supplied phone is on the list; it reveals no saved contact details. Monitor submission failures and do not treat format validation as phone/email ownership verification.
+
+Paid-ticket MVP (additive migration, local setup, security and production checklist): [ticketing documentation](docs/ticketing.md). RSVP remains available for RSVP-mode events.

@@ -46,6 +46,7 @@ jobs:
     env:
       # CI never uses hosted Supabase or production credentials.
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54329
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_fixture
       SUPABASE_SERVICE_ROLE_KEY: test-only-placeholder-key
       SITE_URL: http://127.0.0.1:3100
     steps:
@@ -62,7 +63,7 @@ jobs:
         run: npx --no-install playwright install --with-deps chromium
       - name: Build the production app against the local test service
         run: npm run build
-      - name: Test mobile and desktop RSVP flows
+      - name: Test mobile and desktop RSVP and ticket flows
         run: npm run test:e2e
       - name: Save browser failure traces and screenshots
         if: ${{ failure() }}

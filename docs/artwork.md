@@ -6,11 +6,11 @@ Generated using the built-in image_gen tool from the website concept and flyer i
 
 Saved under `public/artwork/`:
 
-| File | Dimensions | Background |
-| --- | --- | --- |
-| `havana-capitol.png` | 1536 × 1024 | Transparent |
-| `vintage-red-car.png` | 1536 × 1024 | Transparent |
-| `cuban-dance-couple.png` | 1024 × 1536 | Transparent |
+| File                              | Dimensions  | Background       |
+| --------------------------------- | ----------- | ---------------- |
+| `havana-capitol.png`              | 1536 × 1024 | Transparent      |
+| `vintage-red-car.png`             | 1536 × 1024 | Transparent      |
+| `cuban-dance-couple.png`          | 1024 × 1536 | Transparent      |
 | `parchment-havana-background.png` | 1536 × 1024 | Opaque parchment |
 
 Transparency was verified from the PNG alpha channels. These are full-resolution

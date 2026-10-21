@@ -2,7 +2,7 @@
 
 Status: normalization migration applied by the owner. The application now uses normalized RPC submission on this branch. The follow-up RPC migration has been tested only on LOCAL Supabase and awaits review before any remote application. See [the implementation and testing guide](rsvp-submission.md).
 
-This design follows the agreed rules: one normalized phone identifies one contact, a contact can register once per event, contacts hold current profile details, and RSVPs preserve the details submitted for each event. Each dated occurrence is a separate event. Event-series modeling and paid ticket tables are deferred.
+This design follows the agreed rules: one normalized phone identifies one contact, a contact can register once per event, contacts hold current profile details, and RSVPs preserve the details submitted for each event. Each dated occurrence is a separate event. Event-series modeling remains deferred. Paid admission is implemented separately alongside RSVP; see the ticketing section below.
 
 ## Relationships
 
@@ -32,6 +32,8 @@ erDiagram
         text timezone
         text status
         boolean rsvp_open
+        text admission_mode
+        boolean ticket_sales_open
         text gift_card_disclaimer_version "nullable"
         timestamptz created_at
     }
@@ -53,14 +55,14 @@ Every RSVP references exactly one contact and one event. Both parents may have z
 
 ## Contacts
 
-| Column | Type | Nullable | Rules and defaults |
-| --- | --- | --- | --- |
-| `id` | `uuid` | No | Primary key; database-generated UUID. Permanent identity referenced by other tables. |
-| `name` | `text` | No | Current name; trimmed, nonblank, 1–100 characters. |
-| `email` | `text` | No | Current email; lowercase, trimmed, 3–254 characters, existing basic database email-shape check. Not unique. |
-| `phone` | `text` | No | Unique canonical E.164 number; shape `^\+[1-9][0-9]{1,14}$`. |
-| `created_at` | `timestamptz` | No | Database-generated insertion time. |
-| `updated_at` | `timestamptz` | No | Initially insertion time; database-maintained when profile values change; must not precede `created_at`. |
+| Column       | Type          | Nullable | Rules and defaults                                                                                          |
+| ------------ | ------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `id`         | `uuid`        | No       | Primary key; database-generated UUID. Permanent identity referenced by other tables.                        |
+| `name`       | `text`        | No       | Current name; trimmed, nonblank, 1–100 characters.                                                          |
+| `email`      | `text`        | No       | Current email; lowercase, trimmed, 3–254 characters, existing basic database email-shape check. Not unique. |
+| `phone`      | `text`        | No       | Unique canonical E.164 number; shape `^\+[1-9][0-9]{1,14}$`.                                                |
+| `created_at` | `timestamptz` | No       | Database-generated insertion time.                                                                          |
+| `updated_at` | `timestamptz` | No       | Initially insertion time; database-maintained when profile values change; must not precede `created_at`.    |
 
 Phone is text because it contains a leading plus sign and is an identifier, not a quantity. Country-aware validation and E.164 normalization remain server responsibilities; a shape check alone does not establish validity or ownership. The server currently defaults national-format numbers to US and rejects extensions.
 
@@ -72,22 +74,22 @@ Keep the existing database name minimum of one character so valid legacy records
 
 ## Events
 
-| Column | Type | Nullable | Rules and defaults |
-| --- | --- | --- | --- |
-| `id` | `uuid` | No | Primary key; database-generated UUID. |
-| `slug` | `text` | No | Unique; 1–120 characters; lowercase hyphen-separated alphanumeric segments, matching the existing slug validation. |
-| `name` | `text` | No | Trimmed, nonblank event title. |
-| `event_date` | `date` | No | Explicit, finite local start date; no default. Must equal the calendar date of `starts_at` in `timezone`. Not unique. |
-| `description` | `text` | Yes | Optional plain-text description; use null for absence; if present, trimmed and nonblank. |
-| `venue_name` | `text` | No | Trimmed, nonblank; current scope is in-person events. |
-| `venue_address` | `text` | No | Trimmed, nonblank; store the display address without prematurely splitting it into address tables. |
-| `starts_at` | `timestamptz` | No | Exact start instant; no default. |
-| `ends_at` | `timestamptz` | No | Exact end instant; strictly after `starts_at`; no default. |
-| `timezone` | `text` | No | Added to the proposed columns: valid IANA display timezone, explicitly supplied, e.g. `America/New_York`. |
-| `status` | `text` | No | Checked set: `draft`, `published`, `cancelled`, `completed`; default `draft`. |
-| `rsvp_open` | `boolean` | No | Default false. May be true only when status is `published`. |
-| `gift_card_disclaimer_version` | `text` | Yes | Added by the follow-up RPC migration. Null means no promotion; otherwise a trimmed 1–100-character supported version requires acknowledgment. |
-| `created_at` | `timestamptz` | No | Database-generated insertion time. |
+| Column                         | Type          | Nullable | Rules and defaults                                                                                                                            |
+| ------------------------------ | ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                           | `uuid`        | No       | Primary key; database-generated UUID.                                                                                                         |
+| `slug`                         | `text`        | No       | Unique; 1–120 characters; lowercase hyphen-separated alphanumeric segments, matching the existing slug validation.                            |
+| `name`                         | `text`        | No       | Trimmed, nonblank event title.                                                                                                                |
+| `event_date`                   | `date`        | No       | Explicit, finite local start date; no default. Must equal the calendar date of `starts_at` in `timezone`. Not unique.                         |
+| `description`                  | `text`        | Yes      | Optional plain-text description; use null for absence; if present, trimmed and nonblank.                                                      |
+| `venue_name`                   | `text`        | No       | Trimmed, nonblank; current scope is in-person events.                                                                                         |
+| `venue_address`                | `text`        | No       | Trimmed, nonblank; store the display address without prematurely splitting it into address tables.                                            |
+| `starts_at`                    | `timestamptz` | No       | Exact start instant; no default.                                                                                                              |
+| `ends_at`                      | `timestamptz` | No       | Exact end instant; strictly after `starts_at`; no default.                                                                                    |
+| `timezone`                     | `text`        | No       | Added to the proposed columns: valid IANA display timezone, explicitly supplied, e.g. `America/New_York`.                                     |
+| `status`                       | `text`        | No       | Checked set: `draft`, `published`, `cancelled`, `completed`; default `draft`.                                                                 |
+| `rsvp_open`                    | `boolean`     | No       | Default false. May be true only when status is `published`.                                                                                   |
+| `gift_card_disclaimer_version` | `text`        | Yes      | Added by the follow-up RPC migration. Null means no promotion; otherwise a trimmed 1–100-character supported version requires acknowledgment. |
+| `created_at`                   | `timestamptz` | No       | Database-generated insertion time.                                                                                                            |
 
 The status values and event-field nullability above are recommended conventions for this target design. Complete venue and schedule details are required even for drafts; supporting incomplete drafts would require relaxing those fields and validating completeness before publishing.
 
@@ -105,18 +107,18 @@ The server discovers all published/open/future events through the restricted dis
 
 ## RSVPs and historical information
 
-| Column | Type | Nullable | Rules and defaults |
-| --- | --- | --- | --- |
-| `id` | `uuid` | No | Primary key; database-generated for new RSVPs; preserve existing IDs during migration. |
-| `contact_id` | `uuid` | No | Foreign key to `contacts.id`; restrict parent deletion and primary-key updates. |
-| `event_id` | `uuid` | No | Foreign key to `events.id`; restrict parent deletion and primary-key updates. |
-| `submitted_name` | `text` | No | Added historical snapshot; same database shape checks as contact name. |
-| `submitted_email` | `text` | No | Added historical snapshot; same normalization and database shape checks as contact email. Not unique. |
-| `submitted_phone` | `text` | No | Added historical snapshot; E.164 shape check. Not individually unique. |
-| `referral_source` | `text` | No | Existing checked values: `Instagram`, `WhatsApp`, `Friend / Word of mouth`, `Guantanamera`, `Dance class / studio`, `Other`. |
-| `gift_card_disclaimer_accepted` | `boolean` | Yes | Null when no promotion applies; otherwise true with a version. Keep the existing true-only check and no default; never infer acceptance. |
-| `disclaimer_version` | `text` | Yes | Null only when acknowledgment is null; otherwise trimmed, 1–100 characters, with trusted server-supplied version and archived exact wording. |
-| `created_at` | `timestamptz` | No | Database-generated submission time for new records; preserve existing timestamps. |
+| Column                          | Type          | Nullable | Rules and defaults                                                                                                                           |
+| ------------------------------- | ------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                            | `uuid`        | No       | Primary key; database-generated for new RSVPs; preserve existing IDs during migration.                                                       |
+| `contact_id`                    | `uuid`        | No       | Foreign key to `contacts.id`; restrict parent deletion and primary-key updates.                                                              |
+| `event_id`                      | `uuid`        | No       | Foreign key to `events.id`; restrict parent deletion and primary-key updates.                                                                |
+| `submitted_name`                | `text`        | No       | Added historical snapshot; same database shape checks as contact name.                                                                       |
+| `submitted_email`               | `text`        | No       | Added historical snapshot; same normalization and database shape checks as contact email. Not unique.                                        |
+| `submitted_phone`               | `text`        | No       | Added historical snapshot; E.164 shape check. Not individually unique.                                                                       |
+| `referral_source`               | `text`        | No       | Existing checked values: `Instagram`, `WhatsApp`, `Friend / Word of mouth`, `Guantanamera`, `Dance class / studio`, `Other`.                 |
+| `gift_card_disclaimer_accepted` | `boolean`     | Yes      | Null when no promotion applies; otherwise true with a version. Keep the existing true-only check and no default; never infer acceptance.     |
+| `disclaimer_version`            | `text`        | Yes      | Null only when acknowledgment is null; otherwise trimmed, 1–100 characters, with trusted server-supplied version and archived exact wording. |
+| `created_at`                    | `timestamptz` | No       | Database-generated submission time for new records; preserve existing timestamps.                                                            |
 
 The proposed RSVP columns alone cannot preserve historical contact information: joining an old RSVP to a changed contact would show today's name/email. Therefore add `submitted_name`, `submitted_email`, and `submitted_phone`. These are immutable submission facts, intentionally distinct from the mutable contact profile. Do not constrain snapshots to equal the current contact fields.
 
@@ -130,14 +132,14 @@ Snapshots preserve attendee submission history. This design does not version eve
 
 ## Uniqueness and indexes
 
-| Constraint or index | Purpose |
-| --- | --- |
-| Primary key on each table's `id` | Stable row identity; each primary key supplies its own unique index. |
-| Unique `contacts.phone` | Atomic one-contact-per-normalized-phone matching, including concurrent requests. Supplies the phone lookup index. |
-| Unique `events.slug` | Prevent duplicate event URLs and support slug lookup. Supplies its own index. |
-| Index `events(event_date)` | Supports calendar-date filtering and chronological event lists; dates remain non-unique. |
+| Constraint or index                  | Purpose                                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Primary key on each table's `id`     | Stable row identity; each primary key supplies its own unique index.                                                     |
+| Unique `contacts.phone`              | Atomic one-contact-per-normalized-phone matching, including concurrent requests. Supplies the phone lookup index.        |
+| Unique `events.slug`                 | Prevent duplicate event URLs and support slug lookup. Supplies its own index.                                            |
+| Index `events(event_date)`           | Supports calendar-date filtering and chronological event lists; dates remain non-unique.                                 |
 | Unique `rsvps(contact_id, event_id)` | Atomic one-RSVP-per-contact-per-event rule. Also supports contact attendance-history lookup and the contact foreign key. |
-| Index `rsvps(event_id, created_at)` | Supports event attendee lists in submission order and the event foreign key. |
+| Index `rsvps(event_id, created_at)`  | Supports event attendee lists in submission order and the event foreign key.                                             |
 
 Yes, use `UNIQUE(contact_id, event_id)`. Reversing the order enforces the same uniqueness, but the chosen contact-first order plus the event-first listing index covers both access paths without extra single-column foreign-key indexes. Do not make either RSVP foreign key unique by itself: that would prevent repeat attendance or prevent multiple attendees at an event.
 
@@ -172,6 +174,22 @@ After explicit approval to generate migration SQL:
 
 No existing RSVP data is to be deleted by this migration. The unrelated private rate-limit table and its data are not part of contact normalization.
 
-## Deferred ticketing
+## Paid admission
 
-The agreed future limit is one ticket per contact per event. RSVP uniqueness does not enforce ticket issuance: the eventual ticket model needs its own database-enforced rule for that limit and idempotent issuance. Orders, ticket types, payments, and tickets are outside this migration. Do not add a ticket count to RSVP or treat an RSVP as proof of payment.
+`events.admission_mode` is non-null text with a check allowing rsvp/ticketed, default rsvp. `events.ticket_sales_open` is non-null boolean, default false. These are added by the new paid-ticket migration; rsvp_open continues to control RSVP mode only.
+
+The additive paid-ticket migration adds ticket_types, orders, tickets, and stripe_events. Orders and tickets each independently enforce UNIQUE(contact_id,event_id); tickets also enforce unique order_id. A verified payment webhook transaction issues one ticket. RSVP records remain separate and never prove payment. Events default to admission_mode=rsvp; ticketed events use ticket_sales_open and an active ticket type. See [ticketing.md](ticketing.md) for the complete model, security boundary and ER diagram.
+
+Paid-ticket MVP (additive migration, local setup, security and production checklist): [ticketing documentation](ticketing.md). RSVP remains available for RSVP-mode events.
+
+The additive `20261020203257_ticket_purchase_recovery.sql` migration tracks an order's payment attempt number/start time and superseded canceled Stripe intent IDs. A server-only recovery RPC rotates the browser capability only after Stripe cancellation, under a row lock with an expected-attempt check. Order/contact/event uniqueness and webhook-only ticket fulfillment remain unchanged. Paid orders cannot be recovered into a new payment. See [ticket recovery](ticketing.md) for the transaction boundaries and remaining ambiguous-intent limitation.
+
+QR display uses the existing unique ticket_token; no QR identifier/image column is added. The read-only `20261020213352_ticket_qr_display.sql` migration adds a service-role-only token lookup and includes the fulfilled token in the purchase-capability read. The QR payload is the canonical SITE_URL + `/tickets/` + ticket_token. Viewing the ticket never changes checked_in_at or payment/fulfillment state.
+
+
+The additive `20261021022808_ticket_noon_sales_cutoff.sql` migration caps ticketed sales at event-local noon using event_date and the event's IANA timezone, preserving earlier sales_end_at values. Triggers maintain the cap on ticket-type and event schedule changes; initialize_ticket_order also checks the cutoff directly before writes. Discovery retains closed ticketed events through their end for the public pay-at-door state. No order/ticket identity, payment fulfillment, RLS grants, or historical RSVP data changes. Existing Stripe intents are not automatically canceled at noon; see the [cutoff limitation and state-flow details](ticketing.md#noon-sales-closure). Only local Supabase has received this migration during development.
+
+
+The additive `20261021174535_ticket_email_delivery.sql` migration adds nullable `tickets.email_attempted_at` and `email_sent_at` timestamps plus two service-role-only RPCs. A conditional atomic claim verifies the stored paid order/intent and valid ticket before returning the order email snapshot and ticket details; duplicate calls return NULL. Gmail sending occurs after the existing fulfillment transaction. Claims never expire automatically, preventing duplicate SMTP sends after ambiguous failures. Existing grants, identity constraints and fulfillment SQL are unchanged. Applied only locally; see [ticket-email.md](ticket-email.md) for the manual recovery procedure and SMTP delivery limits.
+
+Ticketed gift-card events use the additive `20261021191406_ticket_gift_card_disclaimer.sql` migration. Orders hold a nullable paired `gift_card_disclaimer_accepted`/`disclaimer_version` purchase snapshot; non-promotion orders remain NULL/NULL. initialize_ticket_order uses two optional acknowledgment parameters and enforces the server-resolved event's exact supported version before writes. Existing RSVP consent is untouched. See [the October 26 event setup](event-2026-10-26.md).
