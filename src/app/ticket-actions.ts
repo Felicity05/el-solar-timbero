@@ -50,3 +50,16 @@ export async function ticketStatus(eventSlug: string, credential: string): Promi
     return null;
   }
 }
+
+// Read-only availability check immediately before Stripe confirmation; price and
+// order creation still belong to the existing transactional initialization RPC.
+export async function checkTicketSales(slug: string): Promise<"open" | "closed" | "unavailable"> {
+  try {
+    const { getAvailableRsvpEvents } = await import("@/lib/rsvp/rsvp-event");
+    const event = (await getAvailableRsvpEvents()).find((item) => item.slug === slug && item.admission_mode === "ticketed");
+    return event?.open ? "open" : "closed";
+  } catch (error) {
+    ticketFailure("sales.check", error);
+    return "unavailable";
+  }
+}

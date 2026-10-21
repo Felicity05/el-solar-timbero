@@ -221,7 +221,7 @@ try {
   await attendee(phone);
   await page
     .getByRole("heading", {
-      name: "You already have a ticket for this event.",
+      name: "You already have a ticket",
       exact: true,
     })
     .waitFor();
@@ -248,7 +248,7 @@ try {
   await attendee(phone);
   await page
     .getByRole("heading", {
-      name: "You already have a ticket for this event.",
+      name: "You already have a ticket",
       exact: true,
     })
     .waitFor();

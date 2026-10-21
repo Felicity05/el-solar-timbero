@@ -10,7 +10,15 @@ async function sql(query) {
   const { stdout } = await exec(docker, ["exec", container, "psql", "-X", "-U", "postgres", "-d", "postgres", "-At", "-v", "ON_ERROR_STOP=1", "-c", query]);
   return stdout.trim();
 }
-const literal = (v) => (v === null ? "null" : typeof v === "boolean" ? String(v) : `'${String(v).replaceAll("'", "''")}'`);
+const literal = (v) => {
+  if (v === null) {
+    return "null";
+  }
+  if (typeof v === "boolean") {
+    return String(v);
+  }
+  return `'${String(v).replaceAll("'", "''")}'`;
+};
 const phone = "+12025550191";
 const phone2 = "+12025550192";
 async function submit(event, number = phone, name = "Local Test", email = "local@example.com", accepted = false, version = null) {

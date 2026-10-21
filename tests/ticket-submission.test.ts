@@ -9,9 +9,9 @@ test("ticket submission supports both database migrations and never cancels with
     import { createRequire } from 'node:module';
     import { initializePurchase, ticketFailure } from './src/lib/tickets/server.ts';
     const buyer={name:'Test Buyer',email:'test@example.com',phone:'+12025550111',referralSource:'Instagram'};
-    let modern=false, owner=true, paid=false, order, intents, rpcCalls, stripeCalls;
+    let modern=false, owner=true, paid=false, closed=false, order, intents, rpcCalls, stripeCalls;
     const base={status:'pending',order_id:'10000000-0000-4000-8000-000000000001',event_id:'10000000-0000-4000-8000-000000000002',ticket_type_id:'10000000-0000-4000-8000-000000000003',amount_cents:1000,currency:'usd',payment_intent_id:null};
-    function reset(isModern){modern=isModern;owner=true;paid=false;order={...base,payment_attempt:0};intents=new Map();rpcCalls=[];stripeCalls=[];}
+    function reset(isModern){modern=isModern;owner=true;paid=false;closed=false;order={...base,payment_attempt:0};intents=new Map();rpcCalls=[];stripeCalls=[];}
     const fakeStripeRequest=async function(method,path,params,options){
       stripeCalls.push({method,path,params,options});
       if(method==='POST'&&path==='/v1/payment_intents'){
@@ -30,6 +30,7 @@ test("ticket submission supports both database migrations and never cancels with
       const name=String(input).split('/').at(-1),args=JSON.parse(init.body);rpcCalls.push({name,args});
       const response=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json'}});
       if(name==='initialize_ticket_order'){
+        if(closed)return response({status:'closed'});
         if(paid)return response({status:'already_purchased'});
         if(!modern&&!owner)return response({status:'pending_elsewhere'});
         const value={...order,status:owner?'pending':'recovery_required'};
@@ -63,6 +64,7 @@ test("ticket submission supports both database migrations and never cancels with
       assert.deepEqual(stripeCalls[0].params.payment_method_types,['card']);
       paid=true;assert.equal((await submit()).status,'already_purchased');assert.equal(intents.size,1);
     }
+    reset(true);closed=true;assert.equal((await submit()).status,'closed');assert.equal(stripeCalls.length,0);
     reset(false);owner=false;
     assert.equal((await submit()).status,'error');assert.equal(stripeCalls.length,0);
     for(const mode of ['canceled','non-card']){

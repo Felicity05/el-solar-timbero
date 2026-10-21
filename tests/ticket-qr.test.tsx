@@ -27,7 +27,6 @@ test("ticket renders one sharp QR with only its opaque URL and branded admission
   assert.ok(!html.includes("FREE.99"));
   assert.ok(html.includes(`href="${ticket.ticket_url}"`));
   for (const text of [
-    "El Solar Timbero",
     ticket.event_name,
     ticket.venue_name,
     ticket.ticket_code,

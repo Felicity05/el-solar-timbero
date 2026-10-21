@@ -71,6 +71,7 @@ export async function initializePurchase(
   };
   let data = await ticketRpc("initialize_ticket_order", args);
   if (data?.status === "already_purchased") return { status: "already_purchased" };
+  if (data?.status === "closed") return { status: "closed" };
   if (data?.status === "pending_elsewhere")
     return {
       status: "error",

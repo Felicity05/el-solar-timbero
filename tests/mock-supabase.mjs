@@ -12,7 +12,7 @@ const intents = new Map();
 const stripeEvents = new Set();
 function ticketStatus(order) {
   if (!order.ticket_code) return null;
-  return order.status === "refunded" ? "refunded" : "valid";
+  return order.status === "void" ? "void" : "valid";
 }
 createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
@@ -32,9 +32,10 @@ createServer(async (req, res) => {
   }
   // Loopback-only visual fixtures. No production bypass or real provider calls.
   if (req.url === "/fixture" && req.method === "POST") {
-    let body = ""; for await (const chunk of req) body += chunk;
+    let body = "";
+    for await (const chunk of req) body += chunk;
     fixture = { ...fixture, ...JSON.parse(body) };
-    if (fixture.refunded) for (const order of orders.values()) order.status = "refunded";
+    if (fixture.invalidTicket) for (const order of orders.values()) order.status = "void";
     return res.end("{}");
   }
   if (req.url === "/ticket-mode" && req.method === "POST") {
@@ -85,9 +86,12 @@ createServer(async (req, res) => {
     let body = "";
     for await (const chunk of req) body += chunk;
     const p = JSON.parse(body);
-    if (fixture.ticketDelay) await new Promise(resolve => setTimeout(resolve, fixture.ticketDelay));
-    if (fixture.ticketFailure) { res.statusCode=503; return res.end(JSON.stringify({code:"UNAVAILABLE"})); }
-    if (fixture.ticketClosed) return res.end(JSON.stringify({status:"closed"}));
+    if (fixture.ticketDelay) await new Promise((resolve) => setTimeout(resolve, fixture.ticketDelay));
+    if (fixture.ticketFailure) {
+      res.statusCode = 503;
+      return res.end(JSON.stringify({ code: "UNAVAILABLE" }));
+    }
+    if (fixture.ticketClosed || fixture.salesClosed) return res.end(JSON.stringify({ status: "closed" }));
     if (p.p_event_slug !== "browser-ticket-event") return res.end(JSON.stringify({ status: "closed" }));
     let o = orders.get(p.p_phone);
     if (o?.status === "paid") return res.end(JSON.stringify({ status: "already_purchased" }));
@@ -271,11 +275,19 @@ createServer(async (req, res) => {
         return res.end("{}");
       }
       let available = [event, later];
-      if (ticketMode) available.push({
-        ...event, slug: "browser-ticket-event", name: "LOCAL ONLY — Ticket Event",
-        event_date: "2026-12-30", admission_mode: "ticketed", price_cents: 1000,
-        currency: "usd", ticket_type_name: "General Admission",
-      });
+      if (ticketMode)
+        available.push({
+          ...event,
+          slug: "browser-ticket-event",
+          name: "LOCAL ONLY — Ticket Event",
+          event_date: "2026-12-30",
+          admission_mode: "ticketed",
+          price_cents: 1000,
+          currency: "usd",
+          ticket_type_name: "General Admission",
+          open: !(fixture.salesClosed || fixture.ticketClosed),
+          sales_closed: !!(fixture.salesClosed || fixture.ticketClosed),
+        });
       if (noEvents) available = [];
       return res.end(JSON.stringify(available));
     }

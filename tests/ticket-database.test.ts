@@ -115,13 +115,14 @@ test("ticket discovery/sales checks are enforced server-side; RSVP stays separat
     const discovery = async () =>
       (
         await db.query<{
-          events: { slug: string; admission_mode: string; price_cents: number }[];
+          events: { slug: string; admission_mode: string; price_cents: number; open: boolean; sales_closed: boolean }[];
         }>("select public.get_available_rsvp_events() events")
       ).rows[0].events;
     assert.equal((await discovery()).find((e) => e.slug === "paid-test")?.price_cents, 1000);
     await db.exec("update public.events set ticket_sales_open=false where slug='paid-test'");
     assert.equal((await init(db)).status, "closed");
-    assert.ok(!(await discovery()).some((e) => e.slug === "paid-test"));
+    assert.equal((await discovery()).find((e) => e.slug === "paid-test")?.sales_closed, true);
+    assert.equal((await discovery()).find((e) => e.slug === "paid-test")?.open, false);
     await db.exec("update public.events set ticket_sales_open=true,status='completed' where slug='paid-test'");
     assert.equal((await init(db)).status, "closed");
     await db.exec("update public.events set status='published' where slug='paid-test'; update public.ticket_types set sales_end_at=now()-interval '1 day'");
@@ -235,3 +236,46 @@ test("ticket display reads require opaque credentials, expose no attendee data a
     await db.close();
   }
 });
+
+for (const [date, timezone, noonUTC] of [
+  ["2031-07-04", "America/New_York", "2031-07-04T16:00:00Z"],
+  ["2031-01-04", "America/New_York", "2031-01-04T17:00:00Z"],
+  ["2031-07-04", "Asia/Tokyo", "2031-07-04T03:00:00Z"],
+] as const)
+  test(`noon cutoff is authoritative in ${timezone} on ${date}`, async () => {
+    const db = await fixture();
+    try {
+      await db.query(
+        `update public.events set event_date=$1::date, timezone=$2,
+      starts_at=($1::date+time '20:00') at time zone $2,ends_at=($1::date+time '23:00') at time zone $2 where slug='paid-test'`,
+        [date, timezone],
+      );
+      await db.exec("update public.ticket_types set sales_end_at=null");
+      const deadline = (await db.query<{ deadline: string }>("select sales_end_at::text deadline from public.ticket_types")).rows[0].deadline;
+      assert.equal(new Date(deadline).toISOString(), new Date(noonUTC).toISOString());
+      // Isolated test database clock only. Production RPCs accept no caller time.
+      await db.exec(`create or replace function pg_catalog.clock_timestamp() returns timestamptz language sql volatile as $$select current_setting('test.now')::timestamptz$$`);
+      const setTime = async (value: string) => db.query("select set_config('test.now',$1,false)", [value]);
+      await setTime(new Date(Date.parse(noonUTC) - 1).toISOString());
+      assert.equal((await init(db)).status, "pending");
+      const count = async () => Number((await db.query<{ n: number }>("select count(*)::int n from public.orders")).rows[0].n);
+      assert.equal(await count(), 1);
+      await setTime(noonUTC);
+      assert.equal((await init(db, "+12025550112", "b".repeat(64))).status, "closed");
+      assert.equal((await init(db)).status, "closed", "pending orders cannot reinitialize after noon");
+      assert.equal(await count(), 1);
+      assert.equal((await db.query("select * from public.contacts where phone='+12025550112'")).rows.length, 0);
+      const discovered = (await db.query<{ events: { slug: string; open: boolean; sales_closed: boolean }[] }>("select public.get_available_rsvp_events() events")).rows[0].events.find(
+        (e) => e.slug === "paid-test",
+      );
+      assert.equal(discovered?.open, false);
+      assert.equal(discovered?.sales_closed, true);
+      await setTime(new Date(Date.parse(noonUTC) + 1).toISOString());
+      assert.equal((await init(db, "+12025550112", "b".repeat(64))).status, "closed");
+      // Neither a NULL nor a later configured end may bypass the hard cap.
+      await db.exec("update public.ticket_types set sales_end_at='2040-01-01Z'");
+      assert.equal(new Date((await db.query<{ v: string }>("select sales_end_at::text v from public.ticket_types")).rows[0].v).toISOString(), new Date(noonUTC).toISOString());
+    } finally {
+      await db.close();
+    }
+  });

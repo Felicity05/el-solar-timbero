@@ -1,5 +1,6 @@
 import { ticketReturnUrl } from "@/lib/tickets/config";
-import { initializeTicket } from "./ticket-actions";
+import TicketResult from "@/components/tickets/TicketResult";
+import { initializeTicket, checkTicketSales } from "./ticket-actions";
 import TicketPurchaseForm from "@/components/tickets/TicketPurchaseForm";
 import TicketCta from "@/components/tickets/TicketCta";
 import BrandPanel from "@/components/event/BrandPanel";
@@ -10,7 +11,7 @@ import RsvpExperience from "@/components/rsvp/RsvpExperience";
 import RsvpResult from "@/components/rsvp/RsvpResult";
 import RsvpClosed from "@/components/rsvp/RsvpClosed";
 import Link from "next/link";
-import { getAvailableRsvpEvents } from "@/lib/rsvp/rsvp-event";
+import { getAvailableRsvpEvents, type RsvpEvent } from "@/lib/rsvp/rsvp-event";
 import { submitRsvp } from "./actions";
 import { diagnosticReference, reportRsvpFailure, RsvpDiagnosticError } from "@/lib/rsvp/rsvp-diagnostics";
 
@@ -38,10 +39,48 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       </main>
     );
   }
-  const event = requested === undefined ? events[0] : typeof requested === "string" ? events.find((item) => item.slug === requested) : undefined;
+  let event: RsvpEvent | undefined;
+  if (requested === undefined) {
+    event = events[0];
+  } else if (typeof requested === "string") {
+    event = events.find((item) => item.slug === requested);
+  }
+
+  let content = <RsvpClosed selectedEventUnavailable={requested !== undefined} />;
+  if (event?.admission_mode === "ticketed" && event.sales_closed) {
+    content = <TicketResult kind="closed" event={event} />;
+  } else if (event?.open && event.admission_mode === "ticketed") {
+    content = (
+      <TicketPurchaseForm
+        key={event.slug}
+        slug={event.slug}
+        event={event}
+        initializeAction={initializeTicket.bind(null, event.slug)}
+        checkSalesAction={checkTicketSales.bind(null, event.slug)}
+        priceCents={event.price_cents!}
+        currency={event.currency!}
+        ticketType={event.ticket_type_name!}
+        returnUrl={ticketReturnUrl()}
+        hero={<EventHero event={event} cta={<TicketCta />} />}
+        aside={<BrandPanel />}
+      />
+    );
+  } else if (event?.open) {
+    content = (
+      <RsvpExperience
+        key={event.slug}
+        submitAction={submitRsvp.bind(null, event.slug)}
+        disclaimerVersion={event.disclaimer_version}
+        hero={<EventHero event={event} />}
+        aside={<BrandPanel />}
+        success={<RsvpResult kind="success" event={event} />}
+        duplicate={<RsvpResult kind="duplicate" event={event} />}
+      />
+    );
+  }
 
   return (
-    <div className="paper-surface mx-auto w-full overflow-clip border-x border-[#8b572e45] shadow-[0_0_60px_#35271935]">
+    <div data-payment-page className="paper-surface mx-auto w-full overflow-clip border-x border-[#8b572e45] shadow-[0_0_60px_#35271935]">
       <a href="#main" className="bg-surface absolute -top-25 left-4 z-30 px-5 py-3">
         Skip to content
       </a>
@@ -67,32 +106,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
             </ul>
           </nav>
         )}
-        {event?.open && event.admission_mode === "ticketed" ? (
-          <TicketPurchaseForm
-            key={event.slug}
-            slug={event.slug}
-            event={event}
-            initializeAction={initializeTicket.bind(null, event.slug)}
-            priceCents={event.price_cents!}
-            currency={event.currency!}
-            ticketType={event.ticket_type_name!}
-            returnUrl={ticketReturnUrl()}
-            hero={<EventHero event={event} cta={<TicketCta />} />}
-            aside={<BrandPanel />}
-          />
-        ) : event?.open ? (
-          <RsvpExperience
-            key={event.slug}
-            submitAction={submitRsvp.bind(null, event.slug)}
-            disclaimerVersion={event.disclaimer_version}
-            hero={<EventHero event={event} />}
-            aside={<BrandPanel />}
-            success={<RsvpResult kind="success" event={event} />}
-            duplicate={<RsvpResult kind="duplicate" event={event} />}
-          />
-        ) : (
-          <RsvpClosed selectedEventUnavailable={requested !== undefined} />
-        )}
+        {content}
       </main>
       <SiteFooter />
     </div>

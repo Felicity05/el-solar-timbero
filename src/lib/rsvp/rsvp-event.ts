@@ -15,6 +15,7 @@ const eventSchema = z.object({
   venue_name: z.string(),
   venue_address: z.string(),
   open: z.boolean(),
+  sales_closed: z.boolean().default(false),
   disclaimer_version: z.string().nullable(),
   admission_mode: z.enum(["rsvp", "ticketed"]).default("rsvp"),
   price_cents: z.number().int().positive().nullable().optional(),
@@ -40,7 +41,12 @@ export async function getAvailableRsvpEvents(): Promise<RsvpEvent[]> {
         code: issue.code,
       })),
     });
-  return parsed.data.filter((event) => event.open && (event.admission_mode === "ticketed" ? event.price_cents && event.currency === "usd" && event.ticket_type_name : RSVP_OPEN && supported(event)));
+  return parsed.data.filter((event) => {
+    if (event.admission_mode === "ticketed") {
+      return (event.open || event.sales_closed) && event.price_cents && event.currency === "usd" && event.ticket_type_name;
+    }
+    return event.open && RSVP_OPEN && supported(event);
+  });
 }
 
 // The event rendered with the form stays bound to that form. Never re-select

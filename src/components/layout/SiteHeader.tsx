@@ -3,6 +3,13 @@ import Link from "next/link";
 import { RSVP_OPEN } from "@/lib/rsvp/rsvp-config";
 
 export default function SiteHeader({ ticketed = false }: { ticketed?: boolean }) {
+  let cta = "Tonight’s event";
+  if (RSVP_OPEN) {
+    cta = "RSVP";
+  }
+  if (ticketed) {
+    cta = "Get Ticket";
+  }
   return (
     <header className="tablet:pr-7.5 tablet:pl-53.5 mobile:min-h-22.75 mobile:py-3.5 mobile:pr-3 mobile:pl-32.5 mobile:gap-2 relative z-3 flex min-h-29.5 items-center justify-between gap-7 py-5 pr-14.5 pl-63">
       {/* A full navigation also resets the in-page RSVP result. */}
@@ -30,7 +37,7 @@ export default function SiteHeader({ ticketed = false }: { ticketed?: boolean })
           href={ticketed ? "#ticket-purchase" : "#rsvp-title"}
           className="print-brush font-heading text-surface mobile:hidden inline-flex min-h-11 items-center px-7 py-2 text-[23px] uppercase hover:[--print-color:var(--color-primary-hover)]"
         >
-          {ticketed ? "Get Ticket" : RSVP_OPEN ? "RSVP" : "Tonight’s event"}
+          {cta}
         </a>
         <a
           className="group inline-flex min-h-12 items-center justify-center gap-3 text-left text-[14px] leading-[1.3]"

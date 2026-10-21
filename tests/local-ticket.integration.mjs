@@ -10,7 +10,15 @@ const prefix = "local-ticket-integration-";
 const phone = "+12025550181",
   other = "+12025550182",
   hash = "d".repeat(64);
-const lit = (v) => (v === null ? "null" : typeof v === "number" ? String(v) : `'${String(v).replaceAll("'", "''")}'`);
+const lit = (v) => {
+  if (v === null) {
+    return "null";
+  }
+  if (typeof v === "number") {
+    return String(v);
+  }
+  return `'${String(v).replaceAll("'", "''")}'`;
+};
 async function sql(query) {
   const { stdout } = await exec(docker, ["exec", container, "psql", "-X", "-U", "postgres", "-d", "postgres", "-At", "-v", "ON_ERROR_STOP=1", "-c", query]);
   return stdout.trim().split("\n").at(-1);

@@ -11,10 +11,15 @@ export function getSupabaseConnectionInfo() {
   } catch {
     /* No raw invalid URL in logs. */
   }
-  return {
-    host,
-    keyType: key.startsWith("sb_secret_") ? "secret" : key.startsWith("sb_publishable_") ? "publishable" : key.startsWith("eyJ") ? "legacy_jwt" : "unknown",
-  };
+  let keyType = "unknown";
+  if (key.startsWith("sb_secret_")) {
+    keyType = "secret";
+  } else if (key.startsWith("sb_publishable_")) {
+    keyType = "publishable";
+  } else if (key.startsWith("eyJ")) {
+    keyType = "legacy_jwt";
+  }
+  return { host, keyType };
 }
 
 export function getSupabaseServer() {

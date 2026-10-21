@@ -8,7 +8,7 @@ export default async function TicketReturn({ searchParams }: { searchParams: Pro
   const slug = (await searchParams).event;
   if (!slug || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) || slug.length > 120) return <main className="p-10">This confirmation link is incomplete. Return to the event page or contact us.</main>;
   return (
-    <main>
+    <main data-payment-page>
       <TicketConfirmation slug={slug} />
     </main>
   );

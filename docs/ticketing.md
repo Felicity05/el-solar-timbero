@@ -202,9 +202,43 @@ QR verification: 56 automated tests, all 16 mobile/desktop browser regressions, 
 
 TicketCard reuses the existing EventDetails component for the ticket's date/time, authoritative price and venue. It adapts ticket fields to the shared component's presentation-only input; EventDetails styles are unchanged. TicketConfirmation uses that same card after success and for an already-purchased ticket when the browser has its purchase credential. Without that credential, the already-purchased screen shows only the selected event's public EventDetails and support guidance, never a QR or ticket code. Date/venue/price are rendered once rather than repeated in separate ticket markup.
 
-After building the app, run `npm run test:screenshots` (set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH to your installed Chrome if needed). Open `test-results/screenshots/index.html`; desktop/mobile full-page PNGs and a linked README are beside it. Captures include RSVP form/validation/submitting/success/already registered/closed/unavailable/server error/discovery error/rate limited, and ticket form/validation/payment preparation/ready/decline/received/success/individual ticket/already purchased (with and without credential)/refunded/invalid link/initialization error/sales closed/rate limited/processing/checking. The PNGs and gallery are local ignored test artifacts; Playwright clears old test output when a new run starts.
+For the isolated screenshot fixtures, build with `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_fixture npm run build`, then run `npm run test:screenshots` (set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH to your installed Chrome if needed). Open `test-results/screenshots/index.html`; desktop/mobile full-page PNGs and a linked README are beside it. Captures include RSVP form/validation/submitting/success/already registered/closed/unavailable/server error/discovery error/rate limited, and ticket form/validation/payment preparation/ready/decline/success/individual ticket/already purchased (with and without credential)/invalid link/initialization error/sales closed/rate limited/processing/checking, plus processing-overlay stages. The PNGs and gallery are local ignored test artifacts; Playwright clears old test output when a new run starts.
 
 All captures use isolated loopback fixtures and synthetic attendee information. The Stripe iframe in this gallery is explicitly a test double. The capture run does not make Stripe payments, consume real Supabase rate limits, reset application rate limits, modify databases, or add a production bypass. Payment/webhook integration is verified separately.
 
 
 EventDetails reuse verification: 56 automated tests, 32 desktop/mobile browser tests, typecheck and production build passed. The visual run saved 54 full-page screenshots covering 27 states in `test-results/screenshots`, with an HTML gallery and README. Targeted lint for the shared EventDetails, ticket components and screenshot tests passed with size warnings. Full-project lint still flags pre-existing nested ternaries outside this change. No database migration, rate-limit policy change, real payment, push or deployment was performed for this presentation update.
+
+
+## Focused ticket state cleanup
+
+`EventResultLayout` and `EventResultCard` extract the existing RSVP result composition, artwork, responsive typography, spacing and event card. RSVP success/duplicate still use their original copy and EventDetails. `TicketResult` uses those same components for success, already purchased and sales closed; `TicketCard` adds only the private ticket code/QR. EventDetails can omit the admission column on a closed-sales card. A duplicate without the browser's purchase capability shows public event details and support guidance, never another customer's ticket credential. Matching a phone is not authentication.
+
+Buy Now opens `PaymentProcessingOverlay` over the current page and disables interaction with the underlying application. The stages reflect actual state: Stripe confirmation → payment received → polling for webhook fulfillment → ticket ready → navigation to the canonical token ticket page. Declines/validation failures dismiss the overlay and show the form error. Slow fulfillment stays in the same overlay with a check-again action; it does not invite another payment. The 3DS return route uses that overlay while resolving the existing purchase. Stripe authentication remains able to mount outside the inert application root. No timer-driven progress percentage or client-side ticket creation is used.
+
+The form prominently states “All ticket sales are final and non-refundable.” There is no application refund button, page, request operation or customer refund workflow. The former refund-specific confirmation branch/browser fixture was removed in favor of a generic unavailable-ticket state. Historical database statuses and invalid-token handling remain intact for safe administrative reconciliation; applied migrations are unchanged.
+
+### Noon sales closure
+
+The new additive migration `20261021022808_ticket_noon_sales_cutoff.sql` computes the deadline as `(events.event_date + time '12:00') AT TIME ZONE events.timezone`, which handles daylight saving using PostgreSQL's configured IANA timezone. It backfills and caps ticket_types.sales_end_at, preserving any earlier cutoff. Ticket-type writes and event date/timezone changes recalculate that cap. Moving an event later does not silently extend an existing earlier deadline; review/reset the configured sales window explicitly.
+
+The transactional initialization RPC independently rejects at/after that deadline using the database clock, before creating a contact/order or returning a payment session. Discovery exposes closed published ticketed events until their end so the selected event can show the pay-at-door result instead of disappearing. Buy Now also makes a server-side availability check before Stripe confirmation. Closed initialization returns before any Stripe PaymentIntent call. RSVP availability and submission are unchanged.
+
+**Existing-intent limitation:** the application cutoff does not cancel a PaymentIntent/client secret issued before noon. An already-started Stripe payment may complete after the cutoff; its verified success webhook must still fulfill the payment. This change adds no cancellation job and does not change webhook authority. If an absolute Stripe-side settlement cutoff is required, that needs a separately reviewed cancellation/race policy.
+
+The migration has been applied only to local Supabase. Before production, review/apply this new migration with the earlier required migrations, confirm each production event's event_date/timezone and sales window, and run a normal-browser Stripe test card/3DS check over HTTPS. Never rewrite a previously applied migration.
+
+Validation covers exact noon boundaries (New York summer/winter and Tokyo), closed direct initialization without extra contacts/orders, unchanged RSVP flows, payment failures, pending reuse, duplicate fulfillment and responsive result/overlay screenshots. Local fixture screenshots are at `test-results/screenshots/index.html`; they deliberately use a labeled Stripe test double and are not evidence of manual card/3DS entry.
+
+
+### Cleanup review files
+
+- Shared presentation: `src/components/event/EventResultLayout.tsx`, `EventResultCard.tsx`, `EventDetails.tsx`; `src/components/rsvp/RsvpResult.tsx`.
+- Ticket states: `src/components/tickets/TicketResult.tsx`, `TicketCard.tsx`, `TicketConfirmation.tsx`, `TicketPurchaseForm.tsx`, `PaymentProcessingOverlay.tsx`, `useTicketPurchase.ts`.
+- Routing/server availability: `src/app/page.tsx`, `src/app/ticket-actions.ts`, `src/app/ticket/return/page.tsx`, `src/app/tickets/[token]/page.tsx`, `src/lib/rsvp/rsvp-event.ts`, `src/lib/tickets/server.ts`, `types.ts`.
+- Additive local-tested migration: `supabase/migrations/20261021022808_ticket_noon_sales_cutoff.sql`.
+- Tests: `tests/browser/ticket.spec.ts`, `tests/mock-supabase.mjs`, `tests/ticket-database.test.ts`, `tests/ticket-qr.test.tsx`, `tests/ticket-submission.test.ts`, `tests/local-ticket.browser.mjs`.
+- Small lint-only conditional cleanup: `src/components/layout/SiteHeader.tsx`, `src/lib/supabase/server.ts`, `tests/local-rsvp.integration.mjs`, `tests/local-ticket.integration.mjs`.
+- Documentation: `docs/ticketing.md`, `docs/database.md`.
+
+Cleanup verification: Node 24.21.0; lint passes with eight size/parameter warnings and zero errors; typecheck passes; 59 automated tests pass; 36 desktop/mobile browser tests pass; production build passes. Local PostgreSQL ticket integration/concurrency checks and RSVP regression checks pass (11 each). The fixture gallery contains 56 full-page PNGs covering 28 states. Card-entry/3DS is not manually reverified by these fixtures. No remote migrations, push, merge or deployment were performed.

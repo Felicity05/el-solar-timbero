@@ -1,6 +1,7 @@
 export type TicketSession =
   | { status: "ready"; clientSecret: string; amountCents: number; currency: string }
   | { status: "already_purchased" }
+  | { status: "closed" }
   | { status: "checking" }
   | { status: "processing"; paymentReceived: boolean }
   | { status: "error"; message: string };
