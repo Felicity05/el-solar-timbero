@@ -3,6 +3,7 @@ import { z } from "zod";
 import { callRsvpRpc } from "./rsvp-rpc";
 import { reportRsvpFailure } from "./rsvp-diagnostics";
 import { disclaimerVersion } from "./rsvp";
+import { ticketDisclaimerVersion } from "../tickets/promotion";
 import { RSVP_OPEN } from "./rsvp-config";
 
 const eventSchema = z.object({
@@ -43,7 +44,13 @@ export async function getAvailableRsvpEvents(): Promise<RsvpEvent[]> {
     });
   return parsed.data.filter((event) => {
     if (event.admission_mode === "ticketed") {
-      return (event.open || event.sales_closed) && event.price_cents && event.currency === "usd" && event.ticket_type_name;
+      return (
+        (event.disclaimer_version === null || event.disclaimer_version === ticketDisclaimerVersion) &&
+        (event.open || event.sales_closed) &&
+        event.price_cents &&
+        event.currency === "usd" &&
+        event.ticket_type_name
+      );
     }
     return event.open && RSVP_OPEN && supported(event);
   });

@@ -55,6 +55,8 @@ export async function initializePurchase(
     phone: string;
     email: string;
     referralSource: string;
+    giftCardDisclaimerAccepted?: boolean;
+    disclaimerVersion?: string | null;
   },
   credential: string,
 ): Promise<TicketSession> {
@@ -68,6 +70,7 @@ export async function initializePurchase(
     p_phone: buyer.phone,
     p_referral_source: buyer.referralSource,
     p_access_hash: hash,
+    ...(buyer.disclaimerVersion ? { p_disclaimer_accepted: buyer.giftCardDisclaimerAccepted === true, p_displayed_disclaimer_version: buyer.disclaimerVersion } : {}),
   };
   let data = await ticketRpc("initialize_ticket_order", args);
   if (data?.status === "already_purchased") return { status: "already_purchased" };
@@ -206,4 +209,5 @@ export async function fulfillStripeEvent(event: Stripe.Event) {
     p_ticket_token: randomBytes(32).toString("hex"),
     p_ticket_code: `EST-${randomBytes(6).toString("hex").toUpperCase()}`,
   });
+  return event.type === "payment_intent.succeeded" ? { orderId: ids.order_id, intentId: intent.id } : null;
 }

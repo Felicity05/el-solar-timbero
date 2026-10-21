@@ -11,13 +11,13 @@ test.beforeEach(async ({ request }) => {
   await request.post("http://127.0.0.1:54329/reset");
 });
 
-test("automatically shows the next event and offers all available events", async ({ page }, info) => {
+test("automatically shows the next event without rendering the preserved upcoming list", async ({ page }, info) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("LOCAL ONLY — Browser Test Event");
-  await expect(page.getByRole("navigation", { name: "Available events" }).getByRole("link")).toHaveCount(2);
+  await expect(page.getByRole("navigation", { name: "Available events" })).toHaveCount(0);
   await expect(page.getByRole("checkbox")).toHaveCount(0);
   await captureState(page, info, "rsvp-form");
-  await page.getByRole("link", { name: /LOCAL ONLY — Later Event/ }).click();
+  await page.goto("/?event=browser-later-event");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("LOCAL ONLY — Later Event");
   await expect(page.locator("time")).toHaveAttribute("datetime", "2027-01-04");
   await expect(page.locator(".event-date")).toContainText("Monday, Jan 4");
@@ -79,20 +79,21 @@ test("write failures keep inputs and do not display success", async ({ page }, i
   await captureState(page, info, "rsvp-server-error");
 });
 
-test("RSVP validation, submitting and rate-limit states", async ({page,request}, info) => {
-  await page.goto('/?event=browser-test-event');
-  await page.getByRole('button',{name:'RSVP',exact:true}).click();
-  await expect(page.locator('main [role=alert]')).toBeVisible();
-  await captureState(page,info,'rsvp-validation');
+test("RSVP validation, submitting and rate-limit states", async ({ page, request }, info) => {
+  await page.goto("/?event=browser-test-event");
+  await page.getByRole("button", { name: "RSVP", exact: true }).click();
+  await expect(page.locator("main [role=alert]")).toBeVisible();
+  await captureState(page, info, "rsvp-validation");
   await fillRsvp(page);
-  await request.post('http://127.0.0.1:54329/fixture',{data:{rsvpDelay:2500}});
-  await page.getByRole('button',{name:'RSVP',exact:true}).click();
-  await expect(page.locator('form')).toHaveAttribute('aria-busy','true');
-  await captureState(page,info,'rsvp-submitting');
-  await expect(page.getByText('Your RSVP has been confirmed.')).toBeVisible();
-  await page.goto('/?event=browser-test-event');
-  await request.post('http://127.0.0.1:54329/fixture',{data:{rateLimited:true}});
-  await fillRsvp(page);await page.getByRole('button',{name:'RSVP',exact:true}).click();
-  await expect(page.locator('main [role=alert]')).toContainText(/wait|many|try again/i);
-  await captureState(page,info,'rsvp-rate-limited');
+  await request.post("http://127.0.0.1:54329/fixture", { data: { rsvpDelay: 2500 } });
+  await page.getByRole("button", { name: "RSVP", exact: true }).click();
+  await expect(page.locator("form")).toHaveAttribute("aria-busy", "true");
+  await captureState(page, info, "rsvp-submitting");
+  await expect(page.getByText("Your RSVP has been confirmed.")).toBeVisible();
+  await page.goto("/?event=browser-test-event");
+  await request.post("http://127.0.0.1:54329/fixture", { data: { rateLimited: true } });
+  await fillRsvp(page);
+  await page.getByRole("button", { name: "RSVP", exact: true }).click();
+  await expect(page.locator("main [role=alert]")).toContainText(/wait|many|try again/i);
+  await captureState(page, info, "rsvp-rate-limited");
 });

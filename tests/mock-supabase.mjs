@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 // Local HTTP stand-in only: production code has no mock or demo bypass.
 import { createServer } from "node:http";
 const rows = new Map();
@@ -93,12 +94,14 @@ createServer(async (req, res) => {
     }
     if (fixture.ticketClosed || fixture.salesClosed) return res.end(JSON.stringify({ status: "closed" }));
     if (p.p_event_slug !== "browser-ticket-event") return res.end(JSON.stringify({ status: "closed" }));
+    if (fixture.ticketPromotion && (p.p_disclaimer_accepted !== true || p.p_displayed_disclaimer_version !== "2026-10-26-ticket-gift-card-v1"))
+      return res.end(JSON.stringify({ status: "disclaimer_required" }));
     let o = orders.get(p.p_phone);
     if (o?.status === "paid") return res.end(JSON.stringify({ status: "already_purchased" }));
     if (!o) {
       o = {
         status: "pending",
-        order_id: "10000000-0000-4000-8000-000000000001",
+        order_id: randomUUID(),
         event_id: "10000000-0000-4000-8000-000000000002",
         ticket_type_id: "10000000-0000-4000-8000-000000000003",
         amount_cents: 1000,
@@ -107,8 +110,15 @@ createServer(async (req, res) => {
         payment_attempt: 0,
         superseded: [],
         access: p.p_access_hash,
+        gift_card_disclaimer_accepted: fixture.ticketPromotion ? p.p_disclaimer_accepted : null,
+        disclaimer_version: fixture.ticketPromotion ? p.p_displayed_disclaimer_version : null,
       };
       orders.set(p.p_phone, o);
+    }
+    if (o.status === "pending" && o.access === p.p_access_hash) {
+      o.submitted_name = p.p_name;
+      o.submitted_email = p.p_email;
+      o.referral_source = p.p_referral_source;
     }
     return res.end(
       JSON.stringify({
@@ -285,6 +295,7 @@ createServer(async (req, res) => {
           price_cents: 1000,
           currency: "usd",
           ticket_type_name: "General Admission",
+          disclaimer_version: fixture.ticketPromotion ? "2026-10-26-ticket-gift-card-v1" : null,
           open: !(fixture.salesClosed || fixture.ticketClosed),
           sales_closed: !!(fixture.salesClosed || fixture.ticketClosed),
         });

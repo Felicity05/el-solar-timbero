@@ -25,7 +25,7 @@ test("ticket renders one sharp QR with only its opaque URL and branded admission
   assert.equal((html.match(/class="event-date /g) ?? []).length, 1);
   assert.ok(html.includes("8–11 PM"));
   assert.ok(!html.includes("FREE.99"));
-  assert.ok(html.includes(`href="${ticket.ticket_url}"`));
+  assert.ok(html.includes(`href="${ticket.ticket_url}?view=card"`));
   for (const text of [
     ticket.event_name,
     ticket.venue_name,
@@ -36,7 +36,7 @@ test("ticket renders one sharp QR with only its opaque URL and branded admission
     "Each ticket is valid for one admission.",
     "Save or screenshot your ticket.",
   ])
-    assert.ok(html.includes(text));
+    assert.ok(html.replace(/<[^>]*>/g, "").includes(text));
   const other = renderToStaticMarkup(<TicketCard ticket={{ ...ticket, ticket_url: `https://example.test/tickets/${"b".repeat(64)}` }} />);
   assert.notEqual(html.match(/<svg[^>]*aria-label="Ticket QR code"[\s\S]*?<\/svg>/)?.[0], other.match(/<svg[^>]*aria-label="Ticket QR code"[\s\S]*?<\/svg>/)?.[0]);
   assert.ok(!new URL(ticket.ticket_url).search);

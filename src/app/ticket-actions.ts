@@ -1,6 +1,8 @@
 "use server";
 import { headers } from "next/headers";
 import { validateRsvp } from "@/lib/rsvp/rsvp-validation";
+import { validateTicketAttendee } from "@/lib/tickets/promotion";
+import { getAvailableRsvpEvents } from "@/lib/rsvp/rsvp-event";
 import { accessSchema, initializePurchase, readPurchase, ticketFailure, ticketRpc } from "@/lib/tickets/server";
 import { clientIp, rateLimitKey } from "@/lib/rsvp/rsvp-rate-limit";
 import type { TicketSession, PurchaseStatus } from "@/lib/tickets/types";
@@ -36,7 +38,15 @@ export async function initializeTicket(eventSlug: string, credential: string, fo
           message: "Too many attempts. Please wait a few minutes and try again.",
         };
     }
-    return await initializePurchase(eventSlug, buyer.data, credential);
+    const event = (await getAvailableRsvpEvents()).find((item) => item.slug === eventSlug && item.admission_mode === "ticketed");
+    if (!event?.open) {
+      return { status: "closed" };
+    }
+    const submission = validateTicketAttendee(formData, event.disclaimer_version);
+    if (!submission.success) {
+      return { status: "error", message: submission.error.issues[0]?.message ?? "Please acknowledge the gift-card offer." };
+    }
+    return await initializePurchase(eventSlug, { ...submission.data, disclaimerVersion: event.disclaimer_version }, credential);
   } catch (error) {
     return { status: "error", message: ticketFailure("initialize", error) };
   }

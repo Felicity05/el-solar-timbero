@@ -65,6 +65,17 @@ try {
   console.log("PASS simultaneous repeated AND distinct success events produce exactly one ticket");
   assert.equal((await init()).status, "already_purchased");
   console.log("PASS paid order never opens another payment");
+  const emailClaims = await Promise.all(Array.from({ length: 8 }, () => sql(`select public.claim_ticket_email(${lit(order.order_id)},'pi_concurrentlocal')::text`)));
+  const claimedEmails = emailClaims.filter((value) => value && value !== "null");
+  assert.equal(claimedEmails.length, 1, "one durable email claim under concurrency");
+  const email = JSON.parse(claimedEmails[0]);
+  assert.equal(email.amount_cents, 1000);
+  assert.match(email.ticket_token, /^[a-f0-9]{64}$/);
+  assert.equal(await sql(`select email_sent_at is null from public.tickets where order_id=${lit(order.order_id)}`), "t");
+  assert.equal(await sql(`select public.mark_ticket_email_sent(${lit(order.order_id)})`), "t");
+  assert.equal(await sql(`select public.claim_ticket_email(${lit(order.order_id)},'pi_concurrentlocal') is null`), "t");
+  console.log("PASS concurrent/duplicate email claims permit one send; email failure preserves the paid ticket");
+
   assert.equal(JSON.parse(await sql(`set role service_role; select coalesce(public.get_ticket_purchase('${prefix}event','${"e".repeat(64)}')::text,'null')`)), null);
   console.log("PASS confirmation requires private purchase credential");
   for (const role of ["anon", "authenticated"]) {

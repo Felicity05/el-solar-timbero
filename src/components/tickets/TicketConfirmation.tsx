@@ -47,7 +47,7 @@ export default function TicketConfirmation({
     );
   }
 
-  if (alreadyPurchased) {
+  if (alreadyPurchased && !finished) {
     return (
       <>
         <div className="paper-surface min-h-screen" aria-hidden="true" />
@@ -56,14 +56,14 @@ export default function TicketConfirmation({
     );
   }
 
-  //what is this, I don't understand
+  //already purchased but browser cached cleaned
   if (alreadyPurchased && finished) {
     return (
       <TicketResult
         kind="duplicate"
         event={event}
         message="We found an existing ticket for your details, but couldn’t open it from this browser.
-        Please use your saved ticket link or contact @el_solar_timbero for help. Don't purchase again"
+        Please check your email, use your saved ticket link or contact @el_solar_timbero for help. Don't purchase again"
       />
     );
   }

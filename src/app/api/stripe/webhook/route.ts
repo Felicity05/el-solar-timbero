@@ -1,7 +1,10 @@
+import { after } from "next/server";
+import { deliverTicketEmail } from "@/lib/tickets/email";
 import { getStripe } from "@/lib/tickets/stripe";
 import { fulfillStripeEvent, ticketFailure } from "@/lib/tickets/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -20,7 +23,10 @@ export async function POST(request: Request) {
   const liveAllowed = process.env.STRIPE_LIVE_MODE === "true" && process.env.NODE_ENV === "production";
   if (event.livemode && !liveAllowed) return Response.json({ error: "Live mode disabled" }, { status: 400 });
   try {
-    await fulfillStripeEvent(event);
+    const purchase = await fulfillStripeEvent(event);
+    if (purchase) {
+      after(() => deliverTicketEmail(purchase.orderId, purchase.intentId));
+    }
     return Response.json({ received: true });
   } catch (error) {
     ticketFailure("webhook.fulfillment", error);

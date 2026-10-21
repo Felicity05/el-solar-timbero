@@ -14,7 +14,13 @@ test("real webhook route verifies raw signatures, rejects live events and retrie
       `
   import assert from 'node:assert/strict';
   import Stripe from 'stripe';
-  import { POST } from './src/app/api/stripe/webhook/route.ts';
+  import { registerHooks } from 'node:module';
+  global.emailCallbacks=[];
+  registerHooks({resolve(specifier,context,next){
+    if(specifier==='next/server') return {url:new URL('./tests/fixtures/next-after.cjs',import.meta.url).href,shortCircuit:true};
+    return next(specifier,context);
+  }});
+  const { POST } = await import('./src/app/api/stripe/webhook/route.ts');
   const stripe = new Stripe('sk_test_fixture');
   let calls=[]; let fail=false;
   global.fetch=async(input,init)=>{
@@ -26,13 +32,15 @@ test("real webhook route verifies raw signatures, rejects live events and retrie
   assert.equal((await POST(request(body,false))).status,400); assert.equal(calls.length,0);
   assert.equal((await POST(request({...body,livemode:true}))).status,400); assert.equal(calls.length,0);
   assert.equal((await POST(request(body))).status,200); assert.equal(calls.length,1);
+  assert.equal(global.emailCallbacks.length,1);
   assert.equal(calls[0].body.p_amount,1000); assert.equal(calls[0].body.p_intent_id,'pi_local');
   assert.match(calls[0].body.p_ticket_token,/^[a-f0-9]{64}$/);
   assert.equal((await POST(request({...body,type:'payment_intent.payment_failed',data:{object:{...body.data.object,status:'requires_payment_method'}}}))).status,200);
   assert.equal(calls[1].body.p_event_type,'payment_intent.payment_failed');
+  assert.equal(global.emailCallbacks.length,1);
   const before=calls.length;
   assert.equal((await POST(request({...body,data:{object:{...body.data.object,amount_received:999}}}))).status,500);assert.equal(calls.length,before);
-  fail=true;assert.equal((await POST(request(body))).status,500);
+  fail=true;assert.equal((await POST(request(body))).status,500);assert.equal(global.emailCallbacks.length,1);
   const raw=JSON.stringify(body);const signature=stripe.webhooks.generateTestHeaderString({payload:raw,secret:'wrong'});
   assert.equal((await POST(new Request('http://localhost/api/stripe/webhook',{method:'POST',body:raw,headers:{'stripe-signature':signature}}))).status,400);
  `,

@@ -10,7 +10,6 @@ import SiteHeader from "@/components/layout/SiteHeader";
 import RsvpExperience from "@/components/rsvp/RsvpExperience";
 import RsvpResult from "@/components/rsvp/RsvpResult";
 import RsvpClosed from "@/components/rsvp/RsvpClosed";
-import Link from "next/link";
 import { getAvailableRsvpEvents, type RsvpEvent } from "@/lib/rsvp/rsvp-event";
 import { submitRsvp } from "./actions";
 import { diagnosticReference, reportRsvpFailure, RsvpDiagnosticError } from "@/lib/rsvp/rsvp-diagnostics";
@@ -85,29 +84,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         Skip to content
       </a>
       <SiteHeader ticketed={event?.admission_mode === "ticketed"} />
-      <main id="main">
-        {events.length > 1 && (
-          <nav aria-label="Available events" className="border-border border-b p-6">
-            <h2 className="font-heading text-2xl">Upcoming events</h2>
-            <ul className="mt-3 flex flex-wrap gap-4">
-              {events.map((item) => (
-                <li key={item.slug}>
-                  <Link href={{ pathname: "/", query: { event: item.slug } }} aria-current={item.slug === event?.slug ? "page" : undefined} className="underline underline-offset-4">
-                    {item.name} —{" "}
-                    {new Intl.DateTimeFormat("en-US", {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                      timeZone: "UTC",
-                    }).format(new Date(`${item.event_date}T12:00:00Z`))}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        )}
-        {content}
-      </main>
+      <main id="main">{content}</main>
       <SiteFooter />
     </div>
   );

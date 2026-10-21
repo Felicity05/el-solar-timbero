@@ -2,7 +2,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { type Appearance, loadStripe } from "@stripe/stripe-js";
-import { validateRsvp } from "@/lib/rsvp/rsvp-validation";
+import { validateTicketAttendee, ticketGiftCardDisclaimer, ticketGiftCardNote } from "@/lib/tickets/promotion";
 import { referralSources } from "@/lib/rsvp/rsvp";
 import type { RsvpEvent } from "@/lib/rsvp/rsvp-event";
 import type { TicketSession } from "@/lib/tickets/types";
@@ -60,7 +60,6 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
   const [version, setVersion] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [paymentResult, setPaymentResult] = useState<boolean | null>(null);
-  const [detailsLocked, setDetailsLocked] = useState(false);
   const waiting = paymentResult !== null || session?.status === "processing";
   const { purchase, finished, retry } = useTicketPurchase(slug, waiting);
   const ready = purchase?.status === "paid" && purchase.ticket_status === "valid" && !!purchase.ticket_code && !!purchase.ticket_url;
@@ -87,11 +86,10 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
     const timer = setTimeout(async () => {
       if (!form.current || initializing.current) return;
       const data = attemptedData.current ?? new FormData(form.current);
-      const valid = validateRsvp(data, false);
+      const valid = validateTicketAttendee(data, event.disclaimer_version);
       if (!valid.success) return;
       attemptedData.current = data;
       initializing.current = true;
-      setDetailsLocked(true);
       setStarting(true);
       setFieldErrors({});
       try {
@@ -108,14 +106,14 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [version, session, slug, initializeAction]);
+  }, [version, session, slug, initializeAction, event.disclaimer_version]);
 
   if (session?.status === "closed") {
     return <TicketResult kind="closed" event={event} />;
   }
   if (session?.status === "already_purchased") return <TicketConfirmation event={event} slug={slug} alreadyPurchased />;
 
-  const locked = starting || session?.status === "ready" || detailsLocked;
+  const locked = starting || waiting || progress !== null;
   const amount = session?.status === "ready" ? session.amountCents : priceCents;
 
   let stage = progress ?? "confirming";
@@ -149,11 +147,15 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
           <form
             ref={form}
             onSubmit={(e) => e.preventDefault()}
-            onChange={() => setVersion((v) => v + 1)}
+            onChange={() => {
+              attemptedData.current = null;
+              setSession(null);
+              setVersion((v) => v + 1);
+            }}
             noValidate
             onBlur={() => {
               if (!form.current || locked) return;
-              const validation = validateRsvp(new FormData(form.current), false);
+              const validation = validateTicketAttendee(new FormData(form.current), event.disclaimer_version);
               const errors: Record<string, string> = {};
               if (!validation.success) for (const issue of validation.error.issues) errors[String(issue.path[0])] = issue.message;
               setFieldErrors(errors);
@@ -212,6 +214,29 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
                 </select>
                 {fieldErrors.referralSource && <p className="text-primary mt-1.5 text-[14px] font-semibold">{fieldErrors.referralSource}</p>}
               </div>
+              {event.disclaimer_version !== null && (
+                <div className="border-border-subtle mobile:mt-5.75 mobile:pt-4.5 mt-6.5 border-t pt-5">
+                  <input type="hidden" name="displayed_disclaimer_version" value={event.disclaimer_version} />
+                  <label className="mobile:text-[14px] flex cursor-pointer items-start gap-3 text-[15px] leading-normal" htmlFor="ticket-gift-card">
+                    <input
+                      className="checked:bg-primary checked:border-border focus:ring-navy mt-px size-6 shrink-0 cursor-pointer appearance-none rounded-sm border focus:ring-2 focus:ring-offset-0 focus:outline-none"
+                      id="ticket-gift-card"
+                      name="giftCardDisclaimerAccepted"
+                      type="checkbox"
+                      required
+                      aria-invalid={!!fieldErrors.giftCardDisclaimerAccepted}
+                      aria-describedby="ticket-gift-card-note ticket-gift-card-error"
+                    />
+                    <span>{ticketGiftCardDisclaimer}</span>
+                  </label>
+                  <p id="ticket-gift-card-note" className="text-muted mobile:text-[12px] mt-2.75 pl-9 text-[13px] leading-[1.45]">
+                    {ticketGiftCardNote}
+                  </p>
+                  <p id="ticket-gift-card-error" className="text-primary mt-1.5 text-[14px] font-semibold">
+                    {fieldErrors.giftCardDisclaimerAccepted}
+                  </p>
+                </div>
+              )}
             </fieldset>
           </form>
 

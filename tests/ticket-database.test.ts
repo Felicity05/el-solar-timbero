@@ -279,3 +279,123 @@ for (const [date, timezone, noonUTC] of [
       await db.close();
     }
   });
+
+test("ticket email is claimed once after fulfillment, uses order snapshots and preserves paid tickets on email failure", async () => {
+  const db = await fixture();
+  try {
+    const order = await init(db);
+    const claim = () => db.query<{ value: Record<string, unknown> | null }>("select public.claim_ticket_email($1,'pi_localtest') value", [order.order_id]);
+    assert.equal((await claim()).rows[0].value, null);
+    await db.query<Record<string, unknown>>("select public.attach_ticket_payment_intent($1,$2,'pi_localtest',0)", [order.order_id, hash]);
+    await fulfill(db, order, "evt_email");
+    await db.exec("update public.contacts set email='changed@example.com'");
+    assert.equal((await db.query<Record<string, unknown>>("select public.claim_ticket_email($1,'pi_wrong') value", [order.order_id])).rows[0].value, null);
+    const data = (await claim()).rows[0].value!;
+    assert.equal(data.recipient, "buyer@example.com");
+    assert.equal(data.amount_cents, 1000);
+    assert.equal(data.ticket_type, "General Admission");
+    assert.match(data.ticket_token as string, /^[a-f0-9]{64}$/);
+    await fulfill(db, order, "evt_email");
+    await fulfill(db, order, "evt_email_other_delivery");
+    assert.equal((await claim()).rows[0].value, null);
+    const states = await db.query<Record<string, unknown>>(
+      "select o.status order_status,t.status ticket_status,t.email_attempted_at,t.email_sent_at from public.orders o join public.tickets t on t.order_id=o.id",
+    );
+    assert.equal(states.rows[0].order_status, "paid");
+    assert.equal(states.rows[0].ticket_status, "valid");
+    assert.ok(states.rows[0].email_attempted_at);
+    assert.equal(states.rows[0].email_sent_at, null); // SMTP failure does not undo payment or release the claim.
+    assert.equal((await db.query<Record<string, unknown>>("select count(*)::int n from public.tickets")).rows[0].n, 1);
+    assert.equal((await db.query<Record<string, unknown>>("select public.mark_ticket_email_sent($1) value", [order.order_id])).rows[0].value, true);
+    assert.ok((await db.query<Record<string, unknown>>("select email_sent_at from public.tickets")).rows[0].email_sent_at);
+    for (const role of ["anon", "authenticated"]) {
+      await db.exec(`set role ${role}`);
+      await assert.rejects(claim(), /permission denied/);
+      await assert.rejects(db.query<Record<string, unknown>>("select public.mark_ticket_email_sent($1)", [order.order_id]), /permission denied/);
+      await db.exec("reset role");
+    }
+    await db.exec("set role service_role");
+    await assert.rejects(db.query<Record<string, unknown>>("select * from public.tickets"), /permission denied/);
+  } finally {
+    await db.close();
+  }
+});
+
+test("paid gift-card acknowledgment is enforced atomically and October 26 draft copies only event details", async () => {
+  const db = await fixture();
+  try {
+    await db.exec("update public.events set gift_card_disclaimer_version='2026-10-26-ticket-gift-card-v1' where slug='paid-test'");
+    const call = async (accepted: boolean, version: string | null) =>
+      (
+        await db.query<{ value: { status: string; order_id: string } }>(
+          "select public.initialize_ticket_order('paid-test','Test Buyer','buyer@example.com','+12025550111','Instagram',$1,$2,$3) value",
+          [hash, accepted, version],
+        )
+      ).rows[0].value;
+    assert.equal((await init(db)).status, "disclaimer_required", "six arguments cannot bypass promotion acceptance");
+    assert.equal((await call(false, null)).status, "disclaimer_required");
+    assert.equal((await call(true, "2026-10-12-v1")).status, "disclaimer_required");
+    assert.equal((await db.query<{ n: number }>("select count(*)::int n from public.orders")).rows[0].n, 0);
+    assert.equal((await db.query<{ n: number }>("select count(*)::int n from public.contacts where phone='+12025550111'")).rows[0].n, 0);
+    const order = await call(true, "2026-10-26-ticket-gift-card-v1");
+    assert.equal(order.status, "pending");
+    const snapshot = (
+      await db.query<{ gift_card_disclaimer_accepted: boolean; disclaimer_version: string }>("select gift_card_disclaimer_accepted,disclaimer_version from public.orders where id=$1", [order.order_id])
+    ).rows[0];
+    assert.equal(snapshot.gift_card_disclaimer_accepted, true);
+    assert.equal(snapshot.disclaimer_version, "2026-10-26-ticket-gift-card-v1");
+    assert.equal((await call(true, snapshot.disclaimer_version)).order_id, order.order_id);
+    await db.exec("update public.events set gift_card_disclaimer_version='unsupported' where slug='paid-test'");
+    assert.equal((await call(true, "unsupported")).status, "unsupported_disclaimer");
+    const historicalBefore = (await db.query<{ v: unknown }>("select jsonb_agg(to_jsonb(r)) v from public.rsvps r")).rows[0].v;
+    await db.exec(readFileSync(new URL("../supabase/events/2026-10-26-ticketed.sql", import.meta.url), "utf8"));
+    const event = (
+      await db.query<{ status: string; ticket_sales_open: boolean; starts_at: string; ends_at: string; price_cents: number; sales_end_at: string }>(
+        "select e.status,e.ticket_sales_open,e.starts_at::text,e.ends_at::text,tt.price_cents,tt.sales_end_at::text from public.events e join public.ticket_types tt on tt.event_id=e.id where e.slug='cuban-night-social-2026-10-26'",
+      )
+    ).rows[0];
+    assert.equal(event.status, "draft");
+    assert.equal(event.ticket_sales_open, false);
+    assert.equal(event.price_cents, 1000);
+    assert.equal(new Date(event.starts_at).toISOString(), "2026-10-27T00:00:00.000Z");
+    assert.equal(new Date(event.ends_at).toISOString(), "2026-10-27T03:30:00.000Z");
+    assert.equal(new Date(event.sales_end_at).toISOString(), "2026-10-26T16:00:00.000Z");
+    assert.deepEqual((await db.query<{ v: unknown }>("select jsonb_agg(to_jsonb(r)) v from public.rsvps r")).rows[0].v, historicalBefore);
+    for (const role of ["anon", "authenticated"]) {
+      await db.exec(`set role ${role}`);
+      await assert.rejects(call(true, snapshot.disclaimer_version), /permission denied/);
+      await db.exec("reset role");
+    }
+  } finally {
+    await db.close();
+  }
+});
+
+test("pending order detail edits persist only for the owning browser and never change a paid ticket", async () => {
+  const db = await fixture();
+  try {
+    const order = await init(db);
+    await db.query("select public.attach_ticket_payment_intent($1,$2,'pi_localtest',0)", [order.order_id, hash]);
+    const edited = await init(db, "+12025550111", hash, "Updated Buyer", "updated@example.com");
+    assert.equal(edited.order_id, order.order_id);
+    let row = (
+      await db.query<{ submitted_name: string; submitted_email: string; stripe_payment_intent_id: string }>(
+        "select submitted_name,submitted_email,stripe_payment_intent_id from public.orders where id=$1",
+        [order.order_id],
+      )
+    ).rows[0];
+    assert.equal(row.submitted_name, "Updated Buyer");
+    assert.equal(row.submitted_email, "updated@example.com");
+    assert.equal(row.stripe_payment_intent_id, "pi_localtest");
+    await init(db, "+12025550111", "b".repeat(64), "Other Browser", "other@example.com");
+    row = (await db.query<typeof row>("select submitted_name,submitted_email,stripe_payment_intent_id from public.orders where id=$1", [order.order_id])).rows[0];
+    assert.equal(row.submitted_email, "updated@example.com");
+    await fulfill(db, order, "evt_edit_paid");
+    assert.equal((await init(db, "+12025550111", hash, "After Payment", "after@example.com")).status, "already_purchased");
+    row = (await db.query<typeof row>("select submitted_name,submitted_email,stripe_payment_intent_id from public.orders where id=$1", [order.order_id])).rows[0];
+    assert.equal(row.submitted_email, "updated@example.com");
+    assert.equal((await db.query<{ email: string }>("select email from public.contacts where phone='+12025550111'")).rows[0].email, "updated@example.com");
+  } finally {
+    await db.close();
+  }
+});

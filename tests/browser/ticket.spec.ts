@@ -52,7 +52,7 @@ test("ticket CTA stays on page; styled $10 form initializes once and embeds Paym
   await page.getByLabel("How did you hear about us?").selectOption("Instagram");
   await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
   await expect(page.locator("#ticket-purchase iframe")).toHaveCount(1);
-  await expect(page.locator("#ticket-name")).toBeDisabled();
+  await expect(page.locator("#ticket-name")).toBeEnabled();
   await captureState(page, info, "ticket-payment-ready");
   await page.waitForTimeout(1200);
   const state = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
@@ -64,15 +64,6 @@ test("ticket CTA stays on page; styled $10 form initializes once and embeds Paym
   expect(await page.evaluate(() => (window as unknown as { __paymentOptions: unknown }).__paymentOptions)).toEqual({
     wallets: { applePay: "never", googlePay: "never", link: "never" },
     layout: { type: "accordion", defaultCollapsed: false },
-  });
-  await page.evaluate(() => {
-    (window as unknown as { __decline: boolean }).__decline = true;
-  });
-  await page.getByRole("button", { name: "Buy Now", exact: true }).click();
-  await expect(page.locator("#ticket-purchase").getByRole("alert")).toContainText("declined");
-  await captureState(page, info, "ticket-payment-declined");
-  await page.evaluate(() => {
-    (window as unknown as { __decline: boolean }).__decline = false;
   });
   await page.evaluate(() => {
     (window as unknown as { __holdPayment: boolean }).__holdPayment = true;
@@ -126,7 +117,7 @@ test("ticket CTA stays on page; styled $10 form initializes once and embeds Paym
   await expect(page.locator(".event-location").first()).toHaveText("$10");
   await captureState(page, info, "ticket-success");
   const ticketLink = page.getByRole("link", { name: "Open your ticket", exact: true });
-  await expect(ticketLink).toHaveAttribute("href", /\/tickets\/[a-f0-9]{64}$/);
+  await expect(ticketLink).toHaveAttribute("href", /\/tickets\/[a-f0-9]{64}\?view=card$/);
   await ticketLink.click();
   await expect(page.getByRole("img", { name: "Ticket QR code", exact: true })).toHaveCount(1);
   await expect(page.getByText("Present this QR code at the door.")).toBeVisible();
@@ -134,7 +125,7 @@ test("ticket CTA stays on page; styled $10 form initializes once and embeds Paym
   await captureState(page, info, "ticket-individual-page");
   await page.goto("/?event=browser-ticket-event");
   await fillTicket(page);
-  await expect(page.getByRole("heading", { name: "You already have a ticket", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "You already have a ticket!", exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "Ticket QR code", exact: true })).toHaveCount(1);
   await expect(page.locator(".event-date")).toHaveCount(1);
   await expect(page.locator(".event-date time")).toHaveAttribute("datetime", "2026-12-30");
@@ -147,6 +138,24 @@ test("ticket CTA stays on page; styled $10 form initializes once and embeds Paym
   await expect(page.getByRole("heading", { name: "Ticket not found", exact: true })).toBeVisible();
   await captureState(page, info, "ticket-invalid-link");
 });
+test("Stripe decline leaves payment retryable without creating a ticket", async ({ page, request }, info) => {
+  await page.goto("/?event=browser-ticket-event");
+  await fillTicket(page);
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  await page.evaluate(() => {
+    (window as unknown as { __decline: boolean }).__decline = true;
+  });
+  await page.getByRole("button", { name: "Buy Now", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const state = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+  expect(state.orders.filter((order: { ticket_code?: string }) => order.ticket_code)).toHaveLength(0);
+  // Stripe owns payment-field errors; the application adds no duplicate error panel.
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  await expect(page.locator("#ticket-purchase iframe")).toHaveCount(1);
+  await expect(page.getByRole("img", { name: "Ticket QR code", exact: true })).toHaveCount(0);
+  await captureState(page, info, "ticket-payment-declined");
+});
+
 test("RSVP event keeps RSVP form and never shows payment controls", async ({ page }) => {
   await page.goto("/?event=browser-test-event");
   await expect(page.getByRole("button", { name: "RSVP", exact: true })).toBeVisible();
@@ -163,7 +172,7 @@ async function fillTicket(page: Page) {
 
 for (const scenario of [
   { name: "initialization-error", fixture: { ticketFailure: true }, text: "We couldn’t complete this request." },
-  { name: "sales-closed", fixture: { ticketClosed: true }, text: "Sales are now over" },
+  { name: "sales-closed", fixture: { ticketClosed: true }, text: "Sales are now closed" },
   { name: "rate-limited", fixture: { rateLimited: true }, text: "Too many attempts." },
   { name: "processing", fixture: { processing: true }, text: "Processing payment" },
   { name: "checking-existing-payment", fixture: { checking: true }, text: "We’re checking an existing payment." },
@@ -171,7 +180,9 @@ for (const scenario of [
   test(`ticket visual state: ${scenario.name}`, async ({ page, request }, info) => {
     await request.post("http://127.0.0.1:54329/fixture", { data: scenario.fixture });
     await page.goto("/?event=browser-ticket-event");
-    if (scenario.name !== "sales-closed") { await fillTicket(page); }
+    if (scenario.name !== "sales-closed") {
+      await fillTicket(page);
+    }
     if (scenario.name === "processing") {
       await expect(page.getByRole("dialog", { name: "Processing payment", exact: true })).toBeVisible();
     } else {
@@ -213,8 +224,8 @@ test("already purchased without browser credential shows event details but no ti
   });
   await page.goto("/?event=browser-ticket-event");
   await fillTicket(page);
-  await expect(page.getByRole("heading", { name: "You already have a ticket", exact: true })).toBeVisible();
-  await expect(page.getByText(/Use your saved confirmation or the original purchase tab/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "You already have a ticket!", exact: true })).toBeVisible();
+  await expect(page.getByText(/use your saved ticket link or contact @el_solar_timbero/)).toBeVisible();
   await expect(page.locator(".event-date")).toHaveCount(1);
   await expect(page.locator(".event-date time")).toHaveAttribute("datetime", "2026-12-30");
   await expect(page.locator(".event-location").first()).toHaveText("$10");
@@ -226,7 +237,7 @@ test("already purchased without browser credential shows event details but no ti
 test("sales closed discovery and a direct initialization both reject sales without an order", async ({ page, request }, info) => {
   await request.post("http://127.0.0.1:54329/fixture", { data: { salesClosed: true } });
   await page.goto("/?event=browser-ticket-event");
-  await expect(page.getByRole("heading", { name: "Sales are now over for this event", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sales are now closed for this event", exact: true })).toBeVisible();
   await expect(page.getByText("You can still come and pay at the door!", { exact: true })).toBeVisible();
   await expect(page.getByText("See you tonight at El Solar!", { exact: true })).toBeVisible();
   await expect(page.locator("form")).toHaveCount(0);
@@ -244,7 +255,69 @@ test("sales closing after payment fields load is checked again before Stripe con
   await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
   await request.post("http://127.0.0.1:54329/fixture", { data: { salesClosed: true } });
   await page.getByRole("button", { name: "Buy Now", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Sales are now over for this event", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sales are now closed for this event", exact: true })).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { __confirmCalls?: number }).__confirmCalls ?? 0)).toBe(0);
   await expect(page.locator("form")).toHaveCount(0);
+});
+
+test("ticket gift-card offer requires acknowledgment before creating an order or payment", async ({ page, request }, info) => {
+  await request.post("http://127.0.0.1:54329/fixture", { data: { ticketPromotion: true } });
+  await page.goto("/?event=browser-ticket-event");
+  await fillTicket(page);
+  const checkbox = page.getByRole("checkbox");
+  await expect(checkbox).toHaveCount(1);
+  await expect(page.getByText(/my ticket purchase includes a \$15 Guantanamera gift card/)).toBeVisible();
+  await page.getByLabel("Name", { exact: true }).focus();
+  await page.getByLabel("Email", { exact: true }).focus();
+  await expect(page.locator("#ticket-gift-card-error")).toContainText("acknowledge");
+  let state = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+  expect(state.orders).toHaveLength(0);
+  expect(state.intents).toHaveLength(0);
+  await checkbox.check();
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  state = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+  expect(state.orders).toHaveLength(1);
+  expect(state.intents).toHaveLength(1);
+  expect(state.orders[0].gift_card_disclaimer_accepted).toBe(true);
+  expect(state.orders[0].disclaimer_version).toBe("2026-10-26-ticket-gift-card-v1");
+  expect(state.intents[0].amount).toBe(1000);
+  await captureState(page, info, "ticket-gift-card-offer");
+});
+
+test("attendee details remain editable after card loads and reuse the same pending payment", async ({ page, request }) => {
+  await page.goto("/?event=browser-ticket-event");
+  await fillTicket(page);
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  const before = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+  await expect(page.getByLabel("Name", { exact: true })).toBeEnabled();
+  await expect(page.getByLabel("Phone number", { exact: true })).toBeEnabled();
+  await expect(page.getByLabel("Email", { exact: true })).toBeEnabled();
+  await page.getByLabel("Name", { exact: true }).fill("Updated Buyer");
+  await page.getByLabel("Email", { exact: true }).fill("updated@example.com");
+  await page.getByLabel("How did you hear about us?").selectOption("Other");
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  await expect
+    .poll(async () => {
+      const state = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+      return state.orders[0].submitted_email;
+    })
+    .toBe("updated@example.com");
+  const after = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+  expect(after.orders).toHaveLength(1);
+  expect(after.intents).toHaveLength(1);
+  expect(after.orders[0].order_id).toBe(before.orders[0].order_id);
+  expect(after.intents[0].id).toBe(before.intents[0].id);
+  expect(after.orders[0].submitted_name).toBe("Updated Buyer");
+  expect(after.orders[0].referral_source).toBe("Other");
+  await page.getByLabel("Email", { exact: true }).fill("invalid");
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toHaveCount(0);
+  await page.getByLabel("Email", { exact: true }).fill("updated@example.com");
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  // A changed phone identifies a different attendee; never retain the old card session.
+  await page.getByLabel("Phone number", { exact: true }).fill("2015550124");
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  const changed = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+  expect(changed.orders).toHaveLength(2);
+  expect(changed.intents).toHaveLength(2);
 });
