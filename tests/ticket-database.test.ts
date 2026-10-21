@@ -67,9 +67,15 @@ test("ticket migration preserves historical RSVP and enforces purchase/fulfillme
     assert.equal((await init(db)).order_id, o.order_id);
     assert.equal((await init(db, "+12025550111", "b".repeat(64))).status, "recovery_required");
     assert.equal((await db.query("select * from public.orders")).rows.length, 1);
-    const profile = (await db.query("select * from public.contacts where phone='+12025550111'")).rows;
+    const originalProfile = (await db.query<{ id: string }>("select id from public.contacts where phone='+12025550111'")).rows[0];
     await init(db, "+12025550111", hash, "Changed Name", "changed@example.com");
-    assert.deepEqual((await db.query("select * from public.contacts where phone='+12025550111'")).rows, profile);
+    const profile = (await db.query<{ id: string; name: string; email: string }>("select * from public.contacts where phone='+12025550111'")).rows;
+    assert.equal(profile[0].id, originalProfile.id);
+    assert.equal(profile[0].name, "Changed Name");
+    assert.equal(profile[0].email, "changed@example.com");
+    const pendingSnapshot = (await db.query<{ submitted_name: string; submitted_email: string }>("select submitted_name,submitted_email from public.orders where id=$1", [o.order_id])).rows[0];
+    assert.equal(pendingSnapshot.submitted_name, "Changed Name");
+    assert.equal(pendingSnapshot.submitted_email, "changed@example.com");
     await db.query("select public.attach_ticket_payment_intent($1,$2,'pi_localtest')", [o.order_id, hash]);
     await assert.rejects(fulfill(db, o, "evt_wrong", "payment_intent.succeeded", 999));
     assert.equal((await db.query("select * from public.stripe_events")).rows.length, 0, "bad amount rolls back dedupe marker");
