@@ -24,17 +24,31 @@ const birthstone = Birthstone({
   display: "swap",
 });
 
+const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")),
-  title: "Cuban Night Social · October 12 | El Solar Timbero",
-  description: "RSVPs are now closed. Join us tonight for timba, son, and Cuban dance at Guantanamera, NYC. " + "Monday, October 12, 2026, 8–11:30 PM. Free admission. Música, baile, comunidad.",
+  metadataBase: new URL(siteUrl),
+
+  title: {
+    default: "El Solar Timbero | Cuban Music, Dance & Community",
+    template: "%s | El Solar Timbero",
+  },
+
+  description: "El Solar Timbero brings Cuban music, dance, and community together in New York City. Discover upcoming events featuring timba, son, rumba, and lo mejor de la música cubana.",
+
   openGraph: {
-    title: "Cuban Night Social · October 12",
-    description: "El Solar Timbero at Guantanamera · 8–11:30 PM · NYC · Free admission. " + "RSVPs are now closed. ¡Nos vemos esta noche en El Solar!",
+    title: "El Solar Timbero",
+    description: "Cuban music, dance, and community in New York City. Timba, son, rumba, and lo mejor de la música cubana.",
     type: "website",
     locale: "en_US",
+    siteName: "El Solar Timbero",
   },
-  twitter: { card: "summary_large_image" },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "El Solar Timbero",
+    description: "Cuban music, dance, and community in New York City.",
+  },
 };
 
 type RootLayoutProps = {
