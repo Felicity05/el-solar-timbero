@@ -43,6 +43,8 @@ try {
   assert.equal(new Set(results.map((o) => o.order_id)).size, 1);
   order = results[0];
   assert.equal(order.amount_cents, 1000);
+  assert.equal(await sql(`select tt.sales_end_at=((e.event_date+time '17:00') at time zone 'America/New_York') from public.ticket_types tt join public.events e on e.id=tt.event_id where e.id=${lit(order.event_id)}`), "t");
+  console.log("PASS local PostgreSQL enforces the 5 PM Eastern ticket sales deadline");
   assert.equal(await sql(`select count(*) from public.contacts where phone=${lit(phone)}`), "1");
   assert.equal(await sql(`select count(*) from public.orders where event_id=${lit(order.event_id)}`), "1");
   console.log("PASS 8 concurrent initializations: one contact, one pending order, authoritative $10 USD");

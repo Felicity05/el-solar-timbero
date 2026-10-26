@@ -21,7 +21,7 @@ npm run test:local:tickets
 
 The last command needs running local Supabase with local migrations applied; it creates and cleans its own fake fixtures and checks concurrent order creation, fulfillment and admission. Browser checks use local mocks, never live payments. The dummy publishable key is for the local browser-test build only; Vercel must build with its real environment variables. Never upload the local `.next` artifact as a production build.
 
-Resolve failing checks before merging; do not bypass the security audit. An October 23, 2026 review found production dependency advisories for Next.js 16.3.8 and Zod 4.6.5. The audit reported fixes in Next.js 16.4.3 and Zod 4.6.6 or later patched versions. This guide does not update packages: review compatible fixes, update the lockfile and rerun all release checks. Always use a fresh audit rather than treating this dated record as a permanent security assessment.
+Resolve failing checks before merging; do not bypass the security audit. The October 26 security update installs Next.js and matching eslint-config-next 16.4.3, plus Zod 4.6.7 (resolved by the lockfile from the patched `^4.6.6` range), to address the earlier advisories. The lockfile records the patched versions. Run a fresh audit on every release rather than treating a dated result as a permanent security assessment.
 
 Review `git status` and the staged diff. Include source files, new migrations, dependency manifests and tests. Keep `.env.production`, `.env.development.local`, certificates, test output and credentials out of Git. Preserve intentional manual edits; review unused artwork copies separately instead of staging everything blindly.
 
@@ -82,7 +82,9 @@ The read-only remote migration review on October 23, 2026 showed all earlier RSV
 1. `20261022172251_staff_ticket_check_in.sql`
 2. `20261023175438_door_ticket_invalid_reasons.sql`
 
-Review both files. They create/replace restricted staff RPCs; they do not backfill or modify sold tickets, change tokens, or replace QR codes. No direct table CRUD grants are restored. If the dry-run lists additional migrations, investigate before proceeding. Do not rewrite applied migration files, use `db reset` remotely, run local seed files in production or repair migration history simply to hide a mismatch.
+The October 26 update additionally requires `20261026155352_ticket_sales_5pm_eastern.sql` after those two migrations, if not already applied. It extends old default noon deadlines only for events that have not ended and preserves earlier custom deadlines and historical windows. Recheck current remote history; the October 23 snapshot above is not a fresh deployment status.
+
+Review all pending files. They create/replace restricted staff RPCs; they do not backfill or modify sold tickets, change tokens, or replace QR codes. No direct table CRUD grants are restored. If the dry-run lists additional migrations, investigate before proceeding. Do not rewrite applied migration files, use `db reset` remotely, run local seed files in production or repair migration history simply to hide a mismatch.
 
 The `--skip-vault` flag keeps this release limited to migrations rather than synchronizing unrelated Vault configuration. After reviewing the dry-run, apply the pending migrations yourself:
 
@@ -111,7 +113,7 @@ Every result should be true. RSVP uses `submit_normalized_rsvp`, not direct `rsv
 
 ## 4. Verify the event and Stripe endpoint
 
-Set `CHECK_IN_EVENT_SLUG` to the actual live event, not `dev-ticket-test-2026-12-30`. In Supabase confirm that event is `published` and `ticketed`. Ticket sales additionally require a future start, open `ticket_sales_open`, one active General Admission type, `price_cents=1000`, USD and an open sales window. The database enforces the noon cutoff on the event date in its configured timezone. Closed sales do not prevent staff admission. Do not reopen sales just to enable check-in.
+Set `CHECK_IN_EVENT_SLUG` to the actual live event, not `dev-ticket-test-2026-12-30`. In Supabase confirm that event is `published` and `ticketed`. Ticket sales additionally require a future start, open `ticket_sales_open`, one active General Admission type, `price_cents=1000`, USD and an open sales window. After the new cutoff migration, the database enforces 5 PM Eastern (`America/New_York`) on the event date, with daylight saving handled automatically. Closed sales do not prevent staff admission. Do not reopen sales just to enable check-in.
 
 In the **LIVE** Stripe account, confirm the existing event destination is exactly:
 
@@ -128,7 +130,7 @@ The browser confirms a PaymentIntent, but only verified server webhook fulfillme
 1. Finish passing release checks and review the complete diff on the current feature branch.
 2. Commit/push the reviewed changes and open the PR to `main`.
 3. Review the preview with staging data; require green `ci`.
-4. Confirm production variables and the two migrations are ready **before** merging.
+4. Confirm production variables and all pending migrations are ready **before** merging.
 5. Merge when ready. Vercel builds `main` using Production variables and locked dependencies.
 6. Wait for the deployment to become **Ready**, confirm the expected commit and open the canonical live site. If automatic deployment is paused, deliberately promote/deploy the reviewed `main` commit through the existing project.
 

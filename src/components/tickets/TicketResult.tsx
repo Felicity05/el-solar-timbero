@@ -66,12 +66,14 @@ export default function TicketResult({ kind, ticket, event, message }: TicketRes
     <EventResultLayout title={title} subtitle={subtitle} description={<p className="mobile:text-[16px] mx-auto max-w-115 text-[18px] leading-[1.4]">{description}</p>}>
       {ticket && <TicketCard ticket={ticket} />}
       {!ticket && event && <EventResultCard name={event.name} event={event} showAdmission={kind !== "closed"} />}
-      <Link
-        className="print-brush font-heading text-surface mobile:min-w-60 mobile:text-[25px] mt-6.75 inline-flex min-h-15 min-w-67.5 items-center justify-center px-6 pt-3.25 pb-3.75 text-[30px] uppercase"
-        href="/"
-      >
-        Back to home
-      </Link>
+      {kind !== "closed" && (
+        <Link
+          className="print-brush font-heading text-surface mobile:min-w-60 mobile:text-[25px] mt-6.75 inline-flex min-h-15 min-w-67.5 items-center justify-center px-6 pt-3.25 pb-3.75 text-[30px] uppercase"
+          href="/"
+        >
+          Back to home
+        </Link>
+      )}
     </EventResultLayout>
   );
 }

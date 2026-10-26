@@ -6,13 +6,14 @@ import { PGlite } from "@electric-sql/pglite";
 
 const migrationDir = new URL("../supabase/migrations/", import.meta.url);
 const hash = "a".repeat(64);
-async function fixture() {
+async function fixture(beforeSalesUpgrade = false) {
   const db = new PGlite();
   await db.exec("create role anon; create role authenticated; create role service_role bypassrls; grant usage on schema public to anon,authenticated,service_role;");
   const files = readdirSync(migrationDir)
     .filter((f) => f.endsWith(".sql"))
     .sort();
   for (const f of files) {
+    if (beforeSalesUpgrade && f.includes("ticket_sales_5pm_eastern")) { break; }
     if (f.includes("paid_ticket")) {
       await db.exec(`insert into public.rsvps(event_slug,name,email,phone,referral_source,gift_card_disclaimer_accepted,disclaimer_version,contact_id,event_id,submitted_name,submitted_email,submitted_phone)
        select slug,'Historical Person','old@example.com','+12025550110','Instagram',true,'2026-10-12-v1',
@@ -243,12 +244,12 @@ test("ticket display reads require opaque credentials, expose no attendee data a
   }
 });
 
-for (const [date, timezone, noonUTC] of [
-  ["2031-07-04", "America/New_York", "2031-07-04T16:00:00Z"],
-  ["2031-01-04", "America/New_York", "2031-01-04T17:00:00Z"],
-  ["2031-07-04", "Asia/Tokyo", "2031-07-04T03:00:00Z"],
+for (const [date, timezone, cutoffUTC] of [
+  ["2031-07-04", "America/New_York", "2031-07-04T21:00:00Z"],
+  ["2031-01-04", "America/New_York", "2031-01-04T22:00:00Z"],
+  ["2031-07-04", "America/Los_Angeles", "2031-07-04T21:00:00Z"],
 ] as const)
-  test(`noon cutoff is authoritative in ${timezone} on ${date}`, async () => {
+  test(`5 PM Eastern cutoff is authoritative in ${timezone} on ${date}`, async () => {
     const db = await fixture();
     try {
       await db.query(
@@ -258,17 +259,21 @@ for (const [date, timezone, noonUTC] of [
       );
       await db.exec("update public.ticket_types set sales_end_at=null");
       const deadline = (await db.query<{ deadline: string }>("select sales_end_at::text deadline from public.ticket_types")).rows[0].deadline;
-      assert.equal(new Date(deadline).toISOString(), new Date(noonUTC).toISOString());
+      assert.equal(new Date(deadline).toISOString(), new Date(cutoffUTC).toISOString());
       // Isolated test database clock only. Production RPCs accept no caller time.
       await db.exec(`create or replace function pg_catalog.clock_timestamp() returns timestamptz language sql volatile as $$select current_setting('test.now')::timestamptz$$`);
       const setTime = async (value: string) => db.query("select set_config('test.now',$1,false)", [value]);
-      await setTime(new Date(Date.parse(noonUTC) - 1).toISOString());
+      // The old noon policy must no longer reject afternoon purchases.
+      await setTime(new Date(Date.parse(cutoffUTC) - 4 * 60 * 60 * 1000).toISOString());
+      assert.equal((await init(db)).status, "pending");
+      assert.equal((await db.query<{ events: { slug: string; open: boolean }[] }>("select public.get_available_rsvp_events() events")).rows[0].events.find((event) => event.slug === "paid-test")?.open, true);
+      await setTime(new Date(Date.parse(cutoffUTC) - 1).toISOString());
       assert.equal((await init(db)).status, "pending");
       const count = async () => Number((await db.query<{ n: number }>("select count(*)::int n from public.orders")).rows[0].n);
       assert.equal(await count(), 1);
-      await setTime(noonUTC);
+      await setTime(cutoffUTC);
       assert.equal((await init(db, "+12025550112", "b".repeat(64))).status, "closed");
-      assert.equal((await init(db)).status, "closed", "pending orders cannot reinitialize after noon");
+      assert.equal((await init(db)).status, "closed", "pending orders cannot reinitialize after 5 PM Eastern");
       assert.equal(await count(), 1);
       assert.equal((await db.query("select * from public.contacts where phone='+12025550112'")).rows.length, 0);
       const discovered = (await db.query<{ events: { slug: string; open: boolean; sales_closed: boolean }[] }>("select public.get_available_rsvp_events() events")).rows[0].events.find(
@@ -276,11 +281,11 @@ for (const [date, timezone, noonUTC] of [
       );
       assert.equal(discovered?.open, false);
       assert.equal(discovered?.sales_closed, true);
-      await setTime(new Date(Date.parse(noonUTC) + 1).toISOString());
+      await setTime(new Date(Date.parse(cutoffUTC) + 1).toISOString());
       assert.equal((await init(db, "+12025550112", "b".repeat(64))).status, "closed");
       // Neither a NULL nor a later configured end may bypass the hard cap.
       await db.exec("update public.ticket_types set sales_end_at='2040-01-01Z'");
-      assert.equal(new Date((await db.query<{ v: string }>("select sales_end_at::text v from public.ticket_types")).rows[0].v).toISOString(), new Date(noonUTC).toISOString());
+      assert.equal(new Date((await db.query<{ v: string }>("select sales_end_at::text v from public.ticket_types")).rows[0].v).toISOString(), new Date(cutoffUTC).toISOString());
     } finally {
       await db.close();
     }
@@ -365,7 +370,7 @@ test("paid gift-card acknowledgment is enforced atomically and October 26 draft 
     assert.equal(event.price_cents, 1000);
     assert.equal(new Date(event.starts_at).toISOString(), "2026-10-27T00:00:00.000Z");
     assert.equal(new Date(event.ends_at).toISOString(), "2026-10-27T03:30:00.000Z");
-    assert.equal(new Date(event.sales_end_at).toISOString(), "2026-10-26T16:00:00.000Z");
+    assert.equal(new Date(event.sales_end_at).toISOString(), "2026-10-26T21:00:00.000Z");
     assert.deepEqual((await db.query<{ v: unknown }>("select jsonb_agg(to_jsonb(r)) v from public.rsvps r")).rows[0].v, historicalBefore);
     for (const role of ["anon", "authenticated"]) {
       await db.exec(`set role ${role}`);
@@ -454,5 +459,32 @@ test("staff validation never admits; admission is paid/event-bound, once only an
       assert.equal(grants.allowed, role === "service_role");
       assert.equal((await db.query<{ allowed: boolean }>("select has_table_privilege($1,'public.tickets','UPDATE') allowed", [role])).rows[0].allowed, false);
     }
+  } finally { await db.close(); }
+});
+
+
+test("5 PM migration extends default noon windows only, preserving custom/historical windows and closed switches", async () => {
+  const db = await fixture(true);
+  try {
+    await db.exec(`update public.events set ticket_sales_open=false where slug='paid-test';
+      insert into public.events(slug,name,event_date,starts_at,ends_at,timezone,venue_name,venue_address,status,admission_mode,ticket_sales_open)
+      values ('custom-cutoff','Custom',current_date+365,(current_date+365)::timestamp,(current_date+366)::timestamp,'America/New_York','Test','Local','published','ticketed',true),
+      ('historical-cutoff','Past',current_date-10,(current_date-10)::timestamp,(current_date-9)::timestamp,'America/New_York','Test','Local','published','ticketed',false);
+      insert into public.ticket_types(event_id,name,price_cents,sales_end_at)
+      select id,'General Admission',1000,(event_date+time '10:00') at time zone timezone from public.events where slug='custom-cutoff';
+      insert into public.ticket_types(event_id,name,price_cents)
+      select id,'General Admission',1000 from public.events where slug='historical-cutoff';`);
+    const window = async (slug: string) => (await db.query<{ value: string }>("select tt.sales_end_at::text value from public.ticket_types tt join public.events e on e.id=tt.event_id where e.slug=$1", [slug])).rows[0].value;
+    const customBefore = await window("custom-cutoff");
+    const historyBefore = await window("historical-cutoff");
+    const rsvpsBefore = (await db.query("select * from public.rsvps order by id")).rows;
+    await db.exec(readFileSync(new URL("20261026155352_ticket_sales_5pm_eastern.sql", migrationDir), "utf8"));
+    assert.equal(await window("custom-cutoff"), customBefore);
+    assert.equal(await window("historical-cutoff"), historyBefore);
+    assert.equal((await db.query<{ matches: boolean }>("select tt.sales_end_at=((e.event_date+time '17:00') at time zone 'America/New_York') matches from public.ticket_types tt join public.events e on e.id=tt.event_id where e.slug='paid-test'")).rows[0].matches, true);
+    assert.equal((await db.query<{ ticket_sales_open: boolean }>("select ticket_sales_open from public.events where slug='paid-test'")).rows[0].ticket_sales_open, false);
+    assert.deepEqual((await db.query("select * from public.rsvps order by id")).rows, rsvpsBefore);
+    assert.equal((await db.query("select * from public.orders")).rows.length, 0);
+    assert.equal((await db.query("select * from public.tickets")).rows.length, 0);
   } finally { await db.close(); }
 });
