@@ -1,159 +1,151 @@
 # Deploy El Solar Timbero
 
-The application has passed local validation/database tests and browser checks. The owner has confirmed that the rate-limit migration is applied. Launch still requires a successful submission against the hosted database, production environment settings, and HTTPS/domain verification. Local CI uses a test HTTP service, so a green check does not prove the hosted credentials or database are configured correctly.
+This guide covers updates to the existing live Next.js site: normalized RSVP, paid tickets, ticket email and staff check-in. It does not require a new Vercel project, new DNS records or recreating existing events/tickets. Preserve sold tickets, their tokens and the existing QR payload.
 
-## How the pipeline works
+## Release gate
 
-```mermaid
-flowchart LR
-  A[Feature branch and pull request] --> B[GitHub Actions validation]
-  A --> C[Vercel preview]
-  B --> D[Protected main: require ci]
-  C --> E[Review preview]
-  E --> D
-  D --> F[Merge into main]
-  F --> G[Vercel production build]
-  G --> H[elsolartimbero.com]
-```
+Use the existing feature branch and a pull request to `main`. GitHub Actions runs lint, typecheck, automated database/application tests, a production dependency audit, a production build and mobile/desktop browser checks. Protect `main` with the required **ci** check. Vercel's Git integration can deploy immediately after a merge; CI running after a direct push is not a release gate.
 
-GitHub Actions provides continuous integration (CI): it checks changes before release. Vercel's Git integration provides continuous deployment (CD): it builds the merged commit and publishes it. CI and preview builds can run at the same time. Vercel does **not** automatically wait for this workflow before deploying a push to `main`; the required-check branch protection rule is the production gate. A failed Vercel build does not replace the existing successful site. The CI build is a test artifact, not the artifact deployed to production; Vercel rebuilds with production settings.
-
-The workflow requires no GitHub secrets. It runs on pull requests to `main`, pushes to `main`, merge-queue events, and manual requests. Its `ci` job passes only when both validation jobs pass. Those jobs run types, lint, validation/database tests, a production-dependency vulnerability check, a production build, and Chromium browser tests at mobile and desktop sizes. Failed browser checks upload screenshots/traces for seven days. New runs cancel obsolete runs on the same branch. Node 24.x LTS (selected through `.nvmrc` in both jobs), the committed npm lockfile, a fixed Ubuntu runner version, read-only repository permissions, and commit-pinned actions make the setup consistent and limit workflow access. Dependabot proposes weekly action/dependency updates; review and test them before merging.
-
-Sources: [Vercel Git integration](https://vercel.com/docs/git/vercel-for-github), [GitHub protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches).
-
-## 1. Put the release changes on GitHub
-
-The rate-limit and deployment changes must be included in your release commit. From the project directory:
+Run on Node 24.x:
 
 ```sh
-git switch -c launch/vercel-ci
-git add .env.example README.md src/app/actions.ts src/components/rsvp/RsvpResult.tsx src/lib/rsvp/rsvp-rate-limit.ts src/lib/rsvp/rsvp-submit.ts supabase/migrations/20261002202858_add_rsvp_rate_limiting.sql tests/browser/rsvp.spec.ts tests/mock-supabase.mjs tests/rsvp-rate-limit.test.ts .github .nvmrc package.json package-lock.json vercel.json docs/deployment.md
-git diff --cached --stat
-git commit -m "Add RSVP protection and Vercel CI pipeline"
-git push -u origin launch/vercel-ci
+npm ci
+npm run lint
+npm run typecheck
+npm test
+npm audit --omit=dev --audit-level=high
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_fixture NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54329 npm run build
+npm run test:e2e
+npm run test:local:tickets
 ```
 
-Open a pull request from `launch/vercel-ci` to `main` at [the repository](https://github.com/Felicity05/el-solar-timbero). GitHub will discover `.github/workflows/ci.yml` and start CI on the pull request. Review the staged file list before committing; local `.env.development.local` is ignored and must remain untracked. All hosted secrets belong in Vercel, not this commit.
+The last command needs running local Supabase with local migrations applied; it creates and cleans its own fake fixtures and checks concurrent order creation, fulfillment and admission. Browser checks use local mocks, never live payments. The dummy publishable key is for the local browser-test build only; Vercel must build with its real environment variables. Never upload the local `.next` artifact as a production build.
 
-**What happens:** GitHub now has a reproducible copy of your code and migration files. The PR records which changes will be released. CI tests them without writing to your hosted Supabase database.
+Resolve failing checks before merging; do not bypass the security audit. An October 23, 2026 review found production dependency advisories for Next.js 16.3.8 and Zod 4.6.5. The audit reported fixes in Next.js 16.4.3 and Zod 4.6.6 or later patched versions. This guide does not update packages: review compatible fixes, update the lockfile and rerun all release checks. Always use a fresh audit rather than treating this dated record as a permanent security assessment.
 
-## 2. Protect `main`
+Review `git status` and the staged diff. Include source files, new migrations, dependency manifests and tests. Keep `.env.production`, `.env.development.local`, certificates, test output and credentials out of Git. Preserve intentional manual edits; review unused artwork copies separately instead of staging everything blindly.
 
-After the first PR has run so GitHub recognizes the `ci` check, open repository **Settings → Branches → Add branch protection rule**, targeting `main` (or create an equivalent branch ruleset).
+## 1. Configure the existing Vercel project
 
-- Require a pull request before merging.
-- Require status checks and choose **`ci`**, with GitHub Actions as the expected source if offered.
-- Require the branch to be up to date before merging.
-- Apply the rule to administrators / disallow bypass, and keep force pushes and deletion disabled.
-- Require conversation resolution. Require an approving review when there is another maintainer; a solo owner cannot approve their own PR.
+| Setting | Value |
+| --- | --- |
+| Framework | Next.js |
+| Root | Repository root |
+| Production branch | `main` |
+| Node.js | 24.x |
+| Install | `npm ci` |
+| Build | `npm run build` |
+| Output | Next.js default |
 
-GitHub's plan determines whether protection is available: public repositories support it on Free; private repositories need a plan that supports private-repository protection. If protection is unavailable, this pipeline is **not** an enforced release gate. Use a supported plan or restrict production to deliberate manual releases until a gate is available. Do not claim direct pushes are safe merely because CI also runs after the push.
+`package.json`, `.nvmrc`, `vercel.json` and the GitHub workflow define these settings. Keep the current Webpack build option. Check the dashboard for conflicting overrides. Keep the existing production project and domain configuration.
 
-**What happens:** GitHub refuses a merge when `ci` fails or is missing. This prevents a normal PR merge from triggering an unverified production release. After the rule is saved and CI passes, merge the initial release PR so Vercel can import the prepared `main` branch.
+## 2. Set production environment variables
 
-Source: [GitHub branch protection](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches).
+Configure **Vercel → Project → Settings → Environment Variables → Production**. A local `.env.production` file is not evidence that the variables are present in Vercel. Environment changes require a new deployment to take effect. Use sensitive values for private credentials.
 
-## 3. Import the repository into Vercel
+| Variable | Production value / purpose |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Existing hosted Supabase project's HTTPS URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Matching server secret/service-role key; never a browser publishable/anon key |
+| `SUPABASE_URL` | Optional server URL override; if set, it must point to that same hosted project |
+| `SITE_URL` | `https://www.elsolartimbero.com`, the current canonical production origin |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Existing `pk_live_…` key |
+| `STRIPE_SECRET_KEY` | Existing live server key (`rk_live_…` restricted key or `sk_live_…`) |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret of the **LIVE hosted webhook endpoint**, not the CLI listener |
+| `STRIPE_LIVE_MODE` | `true`; live payments also require the production runtime |
+| `GMAIL_USER` | Sending Gmail address |
+| `GMAIL_APP_PASSWORD` | Gmail App Password, never the normal account password |
+| `TICKET_EMAIL_FROM` | Optional display name or configured/verified Gmail send-as address |
+| `CHECK_IN_PIN` | Privately chosen 6–12 digit door PIN; prefer at least 8 digits |
+| `CHECK_IN_EVENT_SLUG` | Exact slug of the existing production ticketed event staff will admit |
+| `CHECK_IN_SESSION_SECRET` | Independent random signing secret, at least 32 characters |
 
-In the [Vercel dashboard](https://vercel.com/new), choose **Add New → Project**, connect GitHub, and import `Felicity05/el-solar-timbero`. Give the integration access to this repository. If a project already exists, connect it under **Settings → Git** instead of creating a second project.
+Generate the door signing secret locally with `openssl rand -hex 32`, then paste it privately into Vercel. Never prefix any server secret, PIN or event-slug setting with `NEXT_PUBLIC_`. Staff receive the PIN privately; it is not emailed to customers.
 
-Choose a plan appropriate for the site's use: [Vercel Hobby](https://vercel.com/docs/plans/hobby) is restricted to personal, non-commercial projects. If this site supports a business or commercial promotion, use a plan that permits that use rather than assuming free admission makes it a personal project.
+The October 23 review found the three `CHECK_IN_*` values missing from local `.env.production`; verify Vercel independently. Do not copy local IPs, local Supabase keys or Stripe sandbox keys into Production. Vercel supplies `VERCEL=1` for trusted IP rate limiting; leave `RSVP_TRUSTED_IP_HEADER` unset on Vercel.
 
-Use these settings:
+For Preview/staging use separate non-production Supabase data, Stripe test keys, an appropriate HTTPS `SITE_URL`, a test event slug and separate door credentials. Do not give unreviewed preview code production database credentials or use a preview against sold customer tickets.
 
-| Setting           | Value                     |
-| ----------------- | ------------------------- |
-| Framework         | Next.js                   |
-| Root directory    | Repository root           |
-| Production branch | `main`                    |
-| Node.js           | 24.x                      |
-| Install command   | `npm ci`                  |
-| Build command     | `npm run build`           |
-| Output directory  | Leave the Next.js default |
+Sources: [Vercel environment variables](https://vercel.com/docs/environment-variables), [Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
 
-The Node version is pinned to `24.x` in `package.json` and `24` in `.nvmrc`; both GitHub Actions jobs read `.nvmrc`. Vercel uses `engines.node` to select Node 24.x even when its dashboard has an older selection. Install/build commands are committed in `vercel.json`, which has no separate Node runtime pin. Dashboard settings and existing deployments are not changed by this repository update. The build uses the project's existing Webpack option. Allow Vercel to use its normal Next.js runtime; no static export or custom output directory is needed. The server action needs a running server function.
+## 3. Apply only pending database migrations before the production code deploys
 
-**What happens:** Vercel reads the repository, installs the exact locked dependencies, and compiles Next.js. It serves static assets through its delivery network and runs RSVP actions on the server. Each subsequent branch push can create a preview, and `main` is the production source.
+First verify the linked project is the existing production project and confirm backup/recovery availability. Run the following yourself; these commands are not run automatically by CI or Vercel:
 
-Sources: [Vercel GitHub deployment](https://vercel.com/docs/git/vercel-for-github), [Node versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
+```sh
+npx supabase migration list --linked
+npx supabase db push --linked --skip-vault --dry-run
+```
 
-## 4. Configure production variables before the first deploy
+The read-only remote migration review on October 23, 2026 showed all earlier RSVP/ticket migrations recorded as applied, with only these two pending, in this order:
 
-Add these variables to the **Production** environment on the import screen or under **Settings → Environment Variables**:
+1. `20261022172251_staff_ticket_check_in.sql`
+2. `20261023175438_door_ticket_invalid_reasons.sql`
 
-| Name                        | Production value                            | Purpose                                                                       |
-| --------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`  | Your real hosted Supabase project URL       | Selects the database API endpoint; the URL is public.                         |
-| `SUPABASE_SERVICE_ROLE_KEY` | The service role key from that same project | Authorizes server-side inserts and rate-limit RPC calls. Keep it server-only. |
-| `SITE_URL`                  | `https://elsolartimbero.com`                | Sets the base URL for social/share metadata.                                  |
+Review both files. They create/replace restricted staff RPCs; they do not backfill or modify sold tickets, change tokens, or replace QR codes. No direct table CRUD grants are restored. If the dry-run lists additional migrations, investigate before proceeding. Do not rewrite applied migration files, use `db reset` remotely, run local seed files in production or repair migration history simply to hide a mismatch.
 
-Use the real Supabase URL, never `http://127.0.0.1:54329`; that address is for local browser tests. Enable Vercel's automatic system environment variables if the setting is offered so `VERCEL=1` is available to the server. The app then uses Vercel's IP header for the shared rate limiter. Do not configure `RSVP_TRUSTED_IP_HEADER` for Vercel.
+The `--skip-vault` flag keeps this release limited to migrations rather than synchronizing unrelated Vault configuration. After reviewing the dry-run, apply the pending migrations yourself:
 
-For **Preview**, use a separate staging Supabase project with both migrations applied and its own URL/key. If staging is not set up yet, leave the Supabase variables unset in Preview: visual previews will render, but RSVP submissions will show an error. Do not select “all environments” for the production service role key; preview code should not have access to live RSVP records. Keep fork-deployment protection enabled. CI already has a local mock and needs no database secrets.
+```sh
+npx supabase db push --linked --skip-vault
+npx supabase migration list --linked
+```
 
-**What happens:** Vercel gives the server its database credentials. Build-time variables also affect the generated app. Changing variables does not update an already-built deployment; redeploy after changing them. The browser never receives the service role key.
+These additive migrations are compatible with the current live application. Apply them **before merging** if merging triggers automatic Vercel deployment. The existing live RSVP/payment flow remains active while the functions are added.
 
-Sources: [Vercel environment variables](https://vercel.com/docs/environment-variables), [system variables](https://vercel.com/docs/environment-variables/system-environment-variables), [request headers](https://vercel.com/docs/headers/request-headers).
-
-## 5. Deploy and check the `.vercel.app` URL first
-
-Click **Deploy** and inspect the build logs. When the deployment is Ready, open its provided `.vercel.app` URL before changing DNS.
-
-Use your own contact details for one deliberate production smoke test:
-
-- Submit valid information with the notice accepted. Confirm the success screen and one matching row in Supabase.
-- Submit the same phone using a different format and email. Confirm the duplicate screen and that the original row was not changed.
-- Try invalid fields and an unchecked notice; confirm no new row is inserted.
-- Keep the normal success/duplicate attempts below the five-phone-attempt allowance. Test a full rate-limit cycle in staging, since intentionally consuming production limits affects real traffic.
-- Check on an actual phone, keyboard navigation, and the Instagram in-app browser. The confirmation is on-screen; the app does not send email/SMS.
-
-Verify hosted permissions using Supabase's SQL editor without exposing private records:
+Verify the staff functions and grants in the hosted SQL editor:
 
 ```sql
 select
-  to_regclass('rsvp_private.rsvp_rate_limits') is not null as counter_table_exists,
-  has_function_privilege('service_role', 'public.consume_rsvp_rate_limit(text,text)', 'EXECUTE') as server_can_limit,
-  not has_function_privilege('anon', 'public.consume_rsvp_rate_limit(text,text)', 'EXECUTE') as anonymous_rpc_blocked,
-  not has_function_privilege('authenticated', 'public.consume_rsvp_rate_limit(text,text)', 'EXECUTE') as authenticated_rpc_blocked,
-  has_table_privilege('service_role', 'public.rsvps', 'INSERT') as server_can_insert,
-  not has_table_privilege('service_role', 'public.rsvps', 'SELECT') as server_cannot_list,
-  not has_table_privilege('anon', 'public.rsvps', 'SELECT') as anonymous_read_blocked,
-  not has_table_privilege('anon', 'public.rsvps', 'INSERT') as anonymous_insert_blocked;
+  has_function_privilege('service_role', 'public.validate_door_ticket(text,text)', 'EXECUTE') as server_can_validate,
+  has_function_privilege('service_role', 'public.check_in_door_ticket(text,text)', 'EXECUTE') as server_can_admit,
+  not has_function_privilege('anon', 'public.validate_door_ticket(text,text)', 'EXECUTE') as anon_validation_blocked,
+  not has_function_privilege('authenticated', 'public.validate_door_ticket(text,text)', 'EXECUTE') as authenticated_validation_blocked,
+  not has_function_privilege('anon', 'public.check_in_door_ticket(text,text)', 'EXECUTE') as anon_admission_blocked,
+  not has_function_privilege('authenticated', 'public.check_in_door_ticket(text,text)', 'EXECUTE') as authenticated_admission_blocked,
+  not has_table_privilege('service_role', 'public.tickets', 'SELECT,INSERT,UPDATE,DELETE') as direct_ticket_crud_blocked,
+  not has_table_privilege('service_role', 'public.rsvps', 'SELECT,INSERT,UPDATE,DELETE') as direct_rsvp_crud_blocked;
 ```
 
-Expect every value to be `true`. A missing RPC can cause this query to error; that is a configuration failure to resolve before launch. Also verify that requests to the RSVP Data API with a publishable/anonymous key cannot read or insert rows. This checks the deployed API configuration in addition to the SQL grants.
+Every result should be true. RSVP uses `submit_normalized_rsvp`, not direct `rsvps` insertion. Ticketing and check-in also use restricted SECURITY DEFINER RPCs with fixed search paths. Do not restore broad permissions to work around an RPC error.
 
-**What happens:** This is the first end-to-end check of Vercel → hosted Supabase. It catches missing credentials, an unavailable RPC, mismatched projects, and un-applied grants that local CI cannot discover.
+## 4. Verify the event and Stripe endpoint
 
-## 6. Connect `elsolartimbero.com`
+Set `CHECK_IN_EVENT_SLUG` to the actual live event, not `dev-ticket-test-2026-12-30`. In Supabase confirm that event is `published` and `ticketed`. Ticket sales additionally require a future start, open `ticket_sales_open`, one active General Admission type, `price_cents=1000`, USD and an open sales window. The database enforces the noon cutoff on the event date in its configured timezone. Closed sales do not prevent staff admission. Do not reopen sales just to enable check-in.
 
-Open **Vercel project → Settings → Domains**. Add `elsolartimbero.com`, then `www.elsolartimbero.com`. Choose the bare domain as canonical and configure `www` to redirect to it. Keep `SITE_URL=https://elsolartimbero.com` consistent with that choice.
+In the **LIVE** Stripe account, confirm the existing event destination is exactly:
 
-Vercel will show the **exact DNS records for this project**. At your existing DNS provider, copy those values:
+```text
+https://www.elsolartimbero.com/api/stripe/webhook
+```
 
-| Domain                               | Typical record type                       | Host/name                              |
-| ------------------------------------ | ----------------------------------------- | -------------------------------------- |
-| `elsolartimbero.com`                 | A (use the type Vercel actually displays) | `@` or the provider's root-domain form |
-| `www.elsolartimbero.com`             | CNAME                                     | `www`                                  |
-| Ownership verification, if requested | TXT                                       | Exact name displayed by Vercel         |
+It must receive `payment_intent.succeeded` and `payment_intent.payment_failed`. Keep the current working endpoint and its signing secret. A redirect from the apex domain (`308`) is not successful webhook delivery; use the final canonical hostname directly and expect HTTP `200`. The CLI listener and its `whsec_…` are local test tools, not the production endpoint.
 
-Use the values shown by Vercel rather than an old IP address or CNAME copied from a tutorial. Replace conflicting web records for these names while preserving mail records (MX and SPF/DKIM/DMARC TXT). You can keep your existing registrar and nameservers; a transfer to Vercel is unnecessary. If Cloudflare manages DNS, start with these web records set to DNS-only while validating Vercel.
+The browser confirms a PaymentIntent, but only verified server webhook fulfillment marks an order paid and creates a ticket. Email runs after committed fulfillment and cannot invalidate a paid ticket. Page refreshes and duplicate webhook delivery must not create another ticket or send another normal email. Gmail failures are diagnosed separately; see [ticket email](ticket-email.md) for claims and manual recovery.
 
-Wait for Vercel to report valid configuration and issue HTTPS, then open `https://elsolartimbero.com` and confirm `https://www.elsolartimbero.com` redirects. Cached DNS can take time to expire; use the dashboard's verification status rather than promising a specific propagation time. Check the share image and title on the final URL.
+## 5. Commit, review and release
 
-**What happens:** DNS directs visitors to Vercel. The HTTPS certificate encrypts browser traffic. The canonical redirect gives both domain names one destination. Future production releases update Vercel's domain routing; you normally leave DNS unchanged.
+1. Finish passing release checks and review the complete diff on the current feature branch.
+2. Commit/push the reviewed changes and open the PR to `main`.
+3. Review the preview with staging data; require green `ci`.
+4. Confirm production variables and the two migrations are ready **before** merging.
+5. Merge when ready. Vercel builds `main` using Production variables and locked dependencies.
+6. Wait for the deployment to become **Ready**, confirm the expected commit and open the canonical live site. If automatic deployment is paused, deliberately promote/deploy the reviewed `main` commit through the existing project.
 
-Source: [Vercel custom-domain setup](https://vercel.com/docs/domains/working-with-domains/add-a-domain).
+No new domain registration, DNS change or Stripe payment-method redesign is needed for this check-in release. Environment-variable edits alone do not alter an already-running deployment.
 
-## 7. Use the pipeline for future releases
+## 6. Post-deployment checks
 
-Create a feature branch, commit changes, push it, and open a PR to `main`. Wait for `ci`, review the preview, and merge. Vercel then builds with Production variables and updates the domain after the deployment succeeds. Confirm the production deployment is Ready and do a brief post-release check. Direct pushes and manual production promotions bypass this PR path; restrict those to deliberate recovery operations.
+- Open the public event and an existing customer ticket link. Existing `/tickets/{token}?view=card` QRs must still resolve to their public ticket; no customer PIN is required and viewing never admits anyone.
+- Open `https://www.elsolartimbero.com/check-in` on an actual staff phone. Enter the private PIN, test show/hide, allow camera access and confirm the session survives refresh. The session lasts four hours; Lock Scanner clears it. Changing the PIN, signing secret or configured event invalidates old sessions after deployment.
+- Validate a ticket for the configured event. Validation must show event/type/code without setting `checked_in_at`. Test actual admission, repeated admission and simultaneous attempts on a dedicated staging/test ticket; do not consume a real attendee's admission just to smoke-test production.
+- Confirm wrong-event/unknown credentials are rejected with explanations and session expiry requires the PIN again. Check in an actual customer only when admitting them at the door.
+- Verify an RSVP-mode event still uses its RSVP form. Verify the paid mode retains Get Ticket, embedded card-only Payment Element and Buy Now. Exercise declines and repeated webhooks in staging/test mode. Any deliberate live payment smoke test is a real $10 charge and needs explicit owner intent.
+- Inspect Vercel runtime logs for safe diagnostic references and Stripe LIVE delivery logs for HTTP `200`. Do not log or share PINs, keys, attendee data, client secrets or ticket credentials.
+- Arrange working internet at the door with a cellular backup. There is no offline admission or check-out/re-entry flow. A network failure is an error, not evidence that a ticket is invalid; retrying admission is safe.
 
-Keep database migrations explicit. Test new migrations in staging and review them before production. For additive, backward-compatible schema changes, apply the migration before deploying code that uses it. For breaking changes, use an expand/migrate/contract sequence across releases. Keep the exact applied SQL in version control, even when it was applied manually through Supabase. CI tests SQL in embedded Postgres but does **not** apply migrations to the hosted project. Do not add production database credentials to a pull-request workflow.
+## Rollback
 
-Use Vercel deployment logs to diagnose RSVP errors; application logs omit contact details and database credentials. Observe failures and traffic after a release. App rate limits do not replace host-level flood protection; evaluate available Vercel firewall/bot controls as traffic grows.
+If the new deployment fails, restore the prior known-good Vercel deployment, then revert/fix through the PR flow. A code rollback does not undo migrations or check-in timestamps. Leave the additive RPC migrations and sold-ticket data intact; do not reset `checked_in_at` or regenerate tokens as a rollback mechanism. Review Vercel's rollback/promotion status before resuming automatic production releases.
 
-For recovery, use the Vercel deployment menu's rollback action to restore a prior good release where available, then open a revert/fix PR so Git matches production. A deployment rollback does not undo database migrations or restore data. Keep migrations compatible with the prior app version. After an instant rollback, review Vercel's rollback state and deliberately resume/promote the fixed release; automatic production-domain assignment can remain paused.
-
-Source: [Vercel Instant Rollback](https://vercel.com/docs/instant-rollback).
+Detailed references: [check-in](check-in.md), [ticketing](ticketing.md), [ticket email](ticket-email.md), [database model](database.md), [Vercel Git integration](https://vercel.com/docs/git/vercel-for-github), [Vercel rollback](https://vercel.com/docs/instant-rollback).

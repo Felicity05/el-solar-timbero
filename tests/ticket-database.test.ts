@@ -405,3 +405,54 @@ test("pending order detail edits persist only for the owning browser and never c
     await db.close();
   }
 });
+
+test("staff validation never admits; admission is paid/event-bound, once only and private", async () => {
+  const db = await fixture();
+  try {
+    const order = await init(db);
+    await db.query("select public.attach_ticket_payment_intent($1,$2,'pi_localtest')", [order.order_id, hash]);
+    await fulfill(db, order, "evt_door");
+    const before = (await db.query<{ ticket_token: string; ticket_code: string }>("select * from public.tickets where order_id=$1", [order.order_id])).rows[0];
+    const call = async (rpc: string, credential = before.ticket_token, slug = "paid-test") => (await db.query<{ value: { status: string; reason?: string; checked_in_at?: string } }>(`select public.${rpc}($1,$2) value`, [slug, credential])).rows[0].value;
+    assert.equal((await call("validate_door_ticket")).status, "valid");
+    assert.equal((await call("validate_door_ticket", before.ticket_code)).status, "valid");
+    assert.equal((await db.query<{ checked_in_at: string | null }>("select checked_in_at from public.tickets")).rows[0].checked_in_at, null);
+    async function rejectsWith(reason: string, credential = before.ticket_token, slug = "paid-test") {
+      for (const rpc of ["validate_door_ticket", "check_in_door_ticket"]) {
+        assert.deepEqual(await call(rpc, credential, slug), { status: "invalid", reason });
+      }
+      assert.equal((await db.query<{ checked_in_at: string | null }>("select checked_in_at from public.tickets")).rows[0].checked_in_at, null);
+    }
+    await rejectsWith("wrong_event", before.ticket_token, "wrong-event");
+    await rejectsWith("not_found", "b".repeat(64));
+    await rejectsWith("not_found", "EST-000000000000");
+    await db.exec("update public.events set status='draft' where slug='paid-test'");
+    await rejectsWith("event_unavailable");
+    await db.exec("update public.events set status='published' where slug='paid-test'");
+    for (const status of ["void", "refunded"]) {
+      await db.query("update public.tickets set status=$1", [status]);
+      await rejectsWith(status);
+    }
+    await db.exec("update public.tickets set status='valid'; update public.orders set status='pending',paid_at=null");
+    await rejectsWith("unpaid");
+    for (const status of ["void", "refunded"]) {
+      await db.query("update public.orders set status=$1", [status]);
+      await rejectsWith(status);
+    }
+    await db.exec("update public.orders set status='paid',paid_at=now()");
+    const admitted = await call("check_in_door_ticket");
+    assert.equal(admitted.status, "checked_in");
+    assert.ok(admitted.checked_in_at);
+    const repeated = await call("check_in_door_ticket", before.ticket_code);
+    assert.equal(repeated.status, "already_checked_in");
+    assert.equal(repeated.checked_in_at, admitted.checked_in_at);
+    assert.equal((await call("validate_door_ticket")).status, "already_checked_in");
+    const after = (await db.query<Record<string, unknown>>("select * from public.tickets")).rows[0];
+    assert.deepEqual({ ...after, checked_in_at: null }, before);
+    for (const role of ["anon", "authenticated", "service_role"]) {
+      const grants = (await db.query<{ allowed: boolean }>("select has_function_privilege($1,'public.check_in_door_ticket(text,text)','EXECUTE') allowed", [role])).rows[0];
+      assert.equal(grants.allowed, role === "service_role");
+      assert.equal((await db.query<{ allowed: boolean }>("select has_table_privilege($1,'public.tickets','UPDATE') allowed", [role])).rows[0].allowed, false);
+    }
+  } finally { await db.close(); }
+});

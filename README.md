@@ -22,7 +22,7 @@ Direct table access is revoked from browser roles and service_role. The server c
 
 Events are discovered dynamically from the database: published/future RSVP events with rsvp_open and ticketed events with open sales/an active ticket type appear in start-time order. The homepage defaults to the next event and lists other available occurrences for selection. No `RSVP_EVENT_SLUG` configuration is used. Optional `RSVP_ENABLED=false` is an emergency RSVP stop; paid sales use events.ticket_sales_open; otherwise database state controls availability. Unsupported disclosure versions are not offered, and database failures show a separate availability error. The transactional RPC independently rechecks eligibility at submission. The service key must remain server-only. Optional private `SUPABASE_URL` overrides the build-inlined public URL for local/runtime server configuration.
 
-See [the schema](docs/database.md) and [the implementation/local-testing guide](docs/rsvp-submission.md). The normalization migration has been applied by the owner; the submission and discovery RPC migrations were tested only locally. Do not deploy this app against a database missing the new RPCs. No remote migration or deployment is performed by these changes.
+See [the schema](docs/database.md) and [the implementation/local-testing guide](docs/rsvp-submission.md). The October 23, 2026 read-only migration review confirmed the earlier normalization, RSVP and ticketing migrations are recorded in production. The two new staff check-in migrations remain pending. Follow [the current deployment guide](docs/deployment.md) to review/apply only pending migrations before deploying code that needs them. CI never applies remote migrations.
 
 For authentication failures, missing RPCs, transport errors and malformed responses, see [RSVP diagnostics](docs/rsvp-diagnostics.md). Error pages include a reference ID for the matching server log. Optional `RSVP_DEBUG=true` enables safe RPC timing logs.
 
@@ -39,7 +39,7 @@ npm run test:e2e
 
 `npm test` exercises runtime validation and runs the actual migrations in embedded PostgreSQL (PGlite) to check constraints, rate-limit counts/expiry, and role permissions. It also checks trusted IP handling, forged fields, honeypot hits, and blocking inserts during limiter outages. Browser tests run the production build against a **local test HTTP service**, not a hosted Supabase project. They cover mobile/desktop layouts, validation, success, phone duplicates, failure/retry, rate-limit messages, and preserving inputs. A production Supabase submission, rate-limit RPC check, and Data API permission smoke test are still required after setup.
 
-Before browser tests, build with `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54329 npm run build` so Next.js embeds the test service URL. Public environment variables are set at build time; rebuild with the hosted URL for deployment. The test runner supplies a placeholder service role key at runtime.
+Before browser tests, build with `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_fixture NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54329 npm run build` so Next.js embeds the test service URL. Public environment variables are set at build time; rebuild with the hosted URL for deployment. The test runner supplies a placeholder service role key at runtime.
 
 For Macs where Playwright's bundled Chromium is unsupported, use an installed Chrome:
 
