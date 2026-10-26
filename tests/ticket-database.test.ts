@@ -466,10 +466,12 @@ test("staff validation never admits; admission is paid/event-bound, once only an
 test("5 PM migration extends default noon windows only, preserving custom/historical windows and closed switches", async () => {
   const db = await fixture(true);
   try {
+    // Match CI's UTC session while constructing each event in its own timezone.
+    await db.exec("set time zone 'UTC'");
     await db.exec(`update public.events set ticket_sales_open=false where slug='paid-test';
       insert into public.events(slug,name,event_date,starts_at,ends_at,timezone,venue_name,venue_address,status,admission_mode,ticket_sales_open)
-      values ('custom-cutoff','Custom',current_date+365,(current_date+365)::timestamp,(current_date+366)::timestamp,'America/New_York','Test','Local','published','ticketed',true),
-      ('historical-cutoff','Past',current_date-10,(current_date-10)::timestamp,(current_date-9)::timestamp,'America/New_York','Test','Local','published','ticketed',false);
+      values ('custom-cutoff','Custom',current_date+365,(current_date+365)::timestamp at time zone 'America/New_York',(current_date+366)::timestamp at time zone 'America/New_York','America/New_York','Test','Local','published','ticketed',true),
+      ('historical-cutoff','Past',current_date-10,(current_date-10)::timestamp at time zone 'America/New_York',(current_date-9)::timestamp at time zone 'America/New_York','America/New_York','Test','Local','published','ticketed',false);
       insert into public.ticket_types(event_id,name,price_cents,sales_end_at)
       select id,'General Admission',1000,(event_date+time '10:00') at time zone timezone from public.events where slug='custom-cutoff';
       insert into public.ticket_types(event_id,name,price_cents)
