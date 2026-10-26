@@ -28,6 +28,9 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         SITE_URL: "http://127.0.0.1:3100",
+        CHECK_IN_PIN: "12345678",
+        CHECK_IN_SESSION_SECRET: "test-only-door-signing-secret-not-for-production",
+        CHECK_IN_EVENT_SLUG: "browser-door-event",
         NODE_OPTIONS: "--import ./tests/mock-stripe-preload.mjs",
         SUPABASE_URL: "http://127.0.0.1:54329",
         STRIPE_SECRET_KEY: "sk_test_fixture",

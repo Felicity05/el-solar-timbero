@@ -43,6 +43,8 @@ try {
   assert.equal(new Set(results.map((o) => o.order_id)).size, 1);
   order = results[0];
   assert.equal(order.amount_cents, 1000);
+  assert.equal(await sql(`select tt.sales_end_at=((e.event_date+time '17:00') at time zone 'America/New_York') from public.ticket_types tt join public.events e on e.id=tt.event_id where e.id=${lit(order.event_id)}`), "t");
+  console.log("PASS local PostgreSQL enforces the 5 PM Eastern ticket sales deadline");
   assert.equal(await sql(`select count(*) from public.contacts where phone=${lit(phone)}`), "1");
   assert.equal(await sql(`select count(*) from public.orders where event_id=${lit(order.event_id)}`), "1");
   console.log("PASS 8 concurrent initializations: one contact, one pending order, authoritative $10 USD");
@@ -92,6 +94,21 @@ try {
   await sql(`update public.events set ticket_sales_open=false where id=${lit(order.event_id)}`);
   assert.equal((await init(other)).status, "closed");
   console.log("PASS closed sales rejected by RPC");
+  const sold = JSON.parse(await sql(`select row_to_json(t) from public.tickets t where order_id=${lit(order.order_id)}`));
+  const door = async (method, value = sold.ticket_token, slug = `${prefix}event`) => JSON.parse(await sql(`set role service_role; select public.${method}(${lit(slug)},${lit(value)})`));
+  assert.equal((await door("validate_door_ticket")).status, "valid");
+  assert.equal(await sql(`select checked_in_at is null from public.tickets where order_id=${lit(order.order_id)}`), "t");
+  assert.equal((await door("check_in_door_ticket", sold.ticket_token, "wrong-event")).status, "invalid");
+  const admissions = await Promise.all([door("check_in_door_ticket"), door("check_in_door_ticket", sold.ticket_code)]);
+  assert.deepEqual(admissions.map((r) => r.status).sort(), ["already_checked_in", "checked_in"]);
+  assert.equal(admissions[0].checked_in_at, admissions[1].checked_in_at);
+  assert.equal((await door("validate_door_ticket")).status, "already_checked_in");
+  const admitted = JSON.parse(await sql(`select row_to_json(t) from public.tickets t where order_id=${lit(order.order_id)}`));
+  assert.deepEqual({ ...admitted, checked_in_at: null }, sold);
+  for (const role of ["anon", "authenticated"]) {
+    await assert.rejects(sql(`set role ${role}; select public.check_in_door_ticket(${lit(`${prefix}event`)},${lit(sold.ticket_token)})`));
+  }
+  console.log("PASS staff validation never admits; two independent simultaneous PostgreSQL sessions admit exactly once; ticket credentials unchanged; browser roles denied");
   assert.equal(await sql(historySql), before);
   console.log("PASS historical October RSVPs unchanged");
 } finally {

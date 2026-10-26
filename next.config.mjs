@@ -3,6 +3,15 @@ const nextConfig = {
   async headers() {
     return [
       {
+        source: "/check-in/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          { key: "Permissions-Policy", value: "camera=(self)" },
+        ],
+      },
+      {
         source: "/tickets/:path*",
         headers: [
           { key: "Cache-Control", value: "private, no-store, max-age=0" },
@@ -19,6 +28,7 @@ const nextConfig = {
     // Stripe can append a client secret to its return URL.
     incomingRequests: { ignore: [/\/ticket\/return/, /\/tickets\//] },
   },
+  allowedDevOrigins: ["192.168.4.210"],
 };
 
 export default nextConfig;

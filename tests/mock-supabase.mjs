@@ -11,6 +11,7 @@ let fixture = {};
 const orders = new Map();
 const intents = new Map();
 const stripeEvents = new Set();
+let doorCheckedAt = null;
 function ticketStatus(order) {
   if (!order.ticket_code) return null;
   return order.status === "void" ? "void" : "valid";
@@ -19,6 +20,7 @@ createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   if (req.url === "/health") return res.end("{}");
   if (req.url === "/reset" && req.method === "POST") {
+    doorCheckedAt = null;
     rows.clear();
     counters.clear();
     limiterUnavailable = false;
@@ -82,6 +84,18 @@ createServer(async (req, res) => {
       return res.end(JSON.stringify(pi));
     }
     return res.end(JSON.stringify([...intents.values()].find((pi) => req.url.endsWith(pi.id))));
+  }
+  if (["/rest/v1/rpc/validate_door_ticket", "/rest/v1/rpc/check_in_door_ticket"].includes(req.url)) {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    const args = JSON.parse(body);
+    if (args.p_event_slug !== "browser-door-event" || !["a".repeat(64), "EST-ABCDEF012345"].includes(args.p_credential)) return res.end(JSON.stringify({ status: "invalid", reason: fixture.doorReason ?? "not_found" }));
+    let status = doorCheckedAt ? "already_checked_in" : "valid";
+    if (req.url.endsWith("/check_in_door_ticket") && !doorCheckedAt) {
+      doorCheckedAt = new Date().toISOString();
+      status = "checked_in";
+    }
+    return res.end(JSON.stringify({ status, ticket_code: "EST-ABCDEF012345", ticket_type: "General Admission", event_name: "LOCAL ONLY Door Test", timezone: "America/New_York", checked_in_at: doorCheckedAt }));
   }
   if (req.url === "/rest/v1/rpc/initialize_ticket_order") {
     let body = "";

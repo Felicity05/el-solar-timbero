@@ -34,7 +34,7 @@ The default `supabase/seed.sql` deliberately contains no inserts. `supabase/seed
 
 Local database development used psql inside the named container because this working tree has no `supabase/config.toml`, despite its running stack. The follow-up SQL was executed directly for development and, after verification, recorded with its SQL in LOCAL migration history so subsequent CLI migration runs do not reapply it. Production application is a separate user-controlled review step.
 
-## Verification
+## Historical local verification
 
 - `npm test`: embedded migration/security checks and application validation/result mapping.
 - `node tests/local-rsvp.integration.mjs`: LOCAL Docker PostgreSQL checks for new/reused contacts, duplicate immutability, profile/snapshot history, promotion rules, closed/completed/missing events, eight independent concurrent sessions, error rollback and permissions. It snapshots the historical October rows' count/checksum before/after and cleans only its synthetic fixtures.
@@ -57,6 +57,6 @@ Final checks passed on Node v24.21.0: lint, typecheck, 40 automated tests, produ
 
 The branch contains the fetched origin/main history. Latest application changes and the discovery migration still need the final commit and hosted CI review before merging. No push, merge, deployment or migration application was performed during this final review.
 
-Before releasing the application, review target migration history and apply only pending migrations in timestamp order: normalized_rsvp_submission, then discover_available_rsvp_events (the earlier normalization/backfill was already applied by the owner). Do not rerun one-shot migrations already recorded in the target history. If merging main automatically triggers Vercel, coordinate/hold that deployment until the required RPC migrations are applied; otherwise the new app will correctly report events unavailable while the RPCs are missing. Never load seed.local.sql or scratch SQL in production. Production configuration needs the matching production URL/server secret and no hardcoded event slug; do not carry local URLs, local keys or the local build artifact into deployment.
+Deployment update — October 23, 2026: the read-only linked migration review confirms that normalization, normalized RSVP submission, event discovery and the existing ticketing migrations are already recorded in production. Only the two new staff check-in migrations are pending. Use [the current deployment guide](deployment.md) for the release sequence, variables and permission checks. The verification records above describe earlier local development, not current production migration status. Never rerun applied migrations or load local seeds in production. Public event discovery is dynamic; the separate staff check-in flow intentionally requires the server-only CHECK_IN_EVENT_SLUG.
 
 The current guarded local seed also includes a clearly fake ticketed test event, without replacing this RSVP fixture. The new paid-admission migration guards the RSVP lookup/write against ticketed events. See [ticketing.md](ticketing.md) for current setup and verification.

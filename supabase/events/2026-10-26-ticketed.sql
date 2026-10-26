@@ -1,4 +1,4 @@
--- REVIEW AND RUN MANUALLY in the intended database after the ticket disclaimer migration.
+-- REVIEW AND RUN MANUALLY in the intended database after the ticket disclaimer and 5 PM Eastern sales-cutoff migrations.
 -- Creates a DRAFT only. Does not publish, open sales, copy attendees or change Oct 12.
 begin;
 do $$
@@ -16,6 +16,6 @@ begin
  'draft',false,'ticketed',false,'2026-10-26-ticket-gift-card-v1') returning id into event_id;
  insert into public.ticket_types(event_id,name,price_cents,currency,active,sales_end_at)
  values(event_id,'General Admission',1000,'usd',true,
- timestamp '2026-10-26 12:00' at time zone 'America/New_York');
+ timestamp '2026-10-26 17:00' at time zone 'America/New_York');
 end $$;
 commit;
