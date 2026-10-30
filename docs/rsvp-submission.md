@@ -16,7 +16,7 @@ Events are now selected dynamically using the new `20261020021415_discover_avail
 
 No `RSVP_EVENT_SLUG` is read and no per-event environment configuration is required. Registration follows database eligibility unless the optional emergency `RSVP_ENABLED=false` override is explicitly set. Remove any stale false override if normal DB-driven registration is desired. Missing this variable defaults to enabled.
 
-The server binds each rendered form's event slug to its Server Action. Client form fields cannot redirect it to a different event. The action resolves that exact event again and the transactional write RPC revalidates it under lock. A closed/deleted event does not silently fall through to a different event. Unsupported disclosure versions are filtered out of discovery. Lookup failures show an unavailable state instead of falsely claiming registration is closed. The generic empty state no longer displays historical October dates or "tonight" claims.
+The server binds each rendered form's event slug to its Server Action. Client form fields cannot redirect it to a different event. The action resolves that exact event again and the transactional write RPC revalidates it under lock. A closed/deleted event does not silently fall through to a different event. Disclosure versions are event-configured opaque identifiers; they do not form an event-date allowlist. A new version must not hide an otherwise available event. The exact displayed version and acknowledgment are still required on submission. Lookup failures show an unavailable state instead of falsely claiming registration is closed. The generic empty state no longer displays historical October dates or "tonight" claims.
 
 The action normalizes name whitespace, lowercase email and country-aware E.164 phone, validates referral/acknowledgment, and calls the write RPC once. Unknown disclosure versions fail closed. The displayed version is compared to current event configuration so a changed notice requires reload. Non-promotion events store null/null even if browser metadata is forged.
 
@@ -24,7 +24,7 @@ The RPC locks the event FOR SHARE and verifies published/open/future eligibility
 
 While holding the contact lock it checks the contact/event RSVP. Duplicates return without updating profile or history. Otherwise it inserts current submitted snapshots and matching legacy columns, then updates current contact name/email. Unique(contact_id,event_id) remains the final safeguard; the legacy unique(event_slug,phone) stays through the rollback window. Unexpected errors roll back the full RPC. The UI receives controlled results, never database messages. Timeouts/retries may encounter a duplicate if a prior commit succeeded; they cannot create another RSVP.
 
-Results: success, duplicate, closed, invalid_event, invalid_input, unsupported_disclaimer, acknowledgment_required. Only success and duplicate switch to the corresponding result UI; other results produce safe errors. Phone matching does not verify ownership.
+Results after the recurring-version migration: success, duplicate, closed, invalid_event, invalid_input, acknowledgment_required. Only success and duplicate switch to the corresponding result UI; other results produce safe errors. Phone matching does not verify ownership.
 
 ## Local-only development
 

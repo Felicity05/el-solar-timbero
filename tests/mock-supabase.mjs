@@ -108,8 +108,11 @@ createServer(async (req, res) => {
       return res.end(JSON.stringify({ code: "UNAVAILABLE" }));
     }
     if (fixture.ticketClosed || fixture.salesClosed) return res.end(JSON.stringify({ status: "closed" }));
-    if (p.p_event_slug !== "browser-ticket-event") return res.end(JSON.stringify({ status: "closed" }));
-    if (fixture.ticketPromotion && (p.p_disclaimer_accepted !== true || p.p_displayed_disclaimer_version !== "2026-10-26-ticket-gift-card-v1"))
+    if (p.p_event_slug !== (fixture.novemberTicket ? "cuban-night-social-2026-11-09" : "browser-ticket-event")) return res.end(JSON.stringify({ status: "closed" }));
+    let promotionVersion = null;
+    if (fixture.ticketPromotion) promotionVersion = "2026-10-26-ticket-gift-card-v1";
+    if (fixture.novemberTicket) promotionVersion = "2026-11-09-v1";
+    if (promotionVersion && (p.p_disclaimer_accepted !== true || p.p_displayed_disclaimer_version !== promotionVersion))
       return res.end(JSON.stringify({ status: "disclaimer_required" }));
     let o = orders.get(p.p_phone);
     if (o?.status === "paid") return res.end(JSON.stringify({ status: "already_purchased" }));
@@ -125,8 +128,8 @@ createServer(async (req, res) => {
         payment_attempt: 0,
         superseded: [],
         access: p.p_access_hash,
-        gift_card_disclaimer_accepted: fixture.ticketPromotion ? p.p_disclaimer_accepted : null,
-        disclaimer_version: fixture.ticketPromotion ? p.p_displayed_disclaimer_version : null,
+        gift_card_disclaimer_accepted: promotionVersion ? p.p_disclaimer_accepted : null,
+        disclaimer_version: promotionVersion ? p.p_displayed_disclaimer_version : null,
       };
       orders.set(p.p_phone, o);
     }
@@ -314,6 +317,12 @@ createServer(async (req, res) => {
           open: !(fixture.salesClosed || fixture.ticketClosed),
           sales_closed: !!(fixture.salesClosed || fixture.ticketClosed),
         });
+      if (fixture.novemberTicket) available = [{
+        ...event, slug: "cuban-night-social-2026-11-09", name: "LOCAL ONLY — November 9 Event", event_date: "2026-11-09",
+        starts_at: "2026-11-10T01:00:00Z", ends_at: "2026-11-10T04:30:00Z",
+        admission_mode: "ticketed", rsvp_open: false, open: true, sales_closed: false,
+        disclaimer_version: "2026-11-09-v1", price_cents: 1000, currency: "usd", ticket_type_name: "General Admission",
+      }];
       if (noEvents) available = [];
       return res.end(JSON.stringify(available));
     }

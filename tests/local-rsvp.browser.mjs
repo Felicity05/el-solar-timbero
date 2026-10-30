@@ -85,7 +85,7 @@ try {
     },
     body: "{}",
   }).then((response) => response.json());
-  const next = discovery.find((event) => event.disclaimer_version === null || event.disclaimer_version === "2026-10-12-v1");
+  const next = discovery.find((event) => event.admission_mode !== "ticketed" && event.open);
   await page.getByRole("heading", { name: next.name, exact: true }).first().waitFor();
   if (next.slug !== slug) await page.getByRole("link").filter({ hasText: "LOCAL DEV — Browser RSVP Test" }).click();
   await page.getByRole("heading", { name: "LOCAL DEV — Browser RSVP Test", exact: true }).waitFor();
