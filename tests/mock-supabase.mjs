@@ -95,7 +95,8 @@ createServer(async (req, res) => {
       doorCheckedAt = new Date().toISOString();
       status = "checked_in";
     }
-    return res.end(JSON.stringify({ status, ticket_code: "EST-ABCDEF012345", ticket_type: "General Admission", event_name: "LOCAL ONLY Door Test", timezone: "America/New_York", checked_in_at: doorCheckedAt }));
+    return res.end(JSON.stringify({ status, ticket_code: "EST-ABCDEF012345", ticket_type: "General Admission",
+      event_name: "LOCAL ONLY Door Test", timezone: "America/New_York", checked_in_at: doorCheckedAt }));
   }
   if (req.url === "/rest/v1/rpc/initialize_ticket_order") {
     let body = "";

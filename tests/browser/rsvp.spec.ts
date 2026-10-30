@@ -7,6 +7,28 @@ async function fillRsvp(page: Page, email = "dancer@example.com") {
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("How did you hear about us?").selectOption("Instagram");
 }
+
+async function expectCenteredEventClosed(page: Page) {
+  const layout = await page.evaluate(() => {
+    const main = document.querySelector("main")!.getBoundingClientRect();
+    const message = document.querySelector('section[aria-labelledby="rsvp-title"]')!.getBoundingClientRect();
+    const footer = document.querySelector("footer")!.getBoundingClientRect();
+    return {
+      mainCenterX: main.x + main.width / 2,
+      mainCenterY: main.y + main.height / 2,
+      messageCenterX: message.x + message.width / 2,
+      messageCenterY: message.y + message.height / 2,
+      footerBottom: footer.bottom,
+      viewportHeight: window.innerHeight,
+      viewportWidth: window.innerWidth,
+      pageWidth: document.documentElement.scrollWidth,
+    };
+  });
+  expect(Math.abs(layout.messageCenterX - layout.mainCenterX)).toBeLessThan(1);
+  expect(Math.abs(layout.messageCenterY - layout.mainCenterY)).toBeLessThan(1);
+  expect(Math.abs(layout.footerBottom - layout.viewportHeight)).toBeLessThan(1);
+  expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewportWidth);
+}
 test.beforeEach(async ({ request }) => {
   await request.post("http://127.0.0.1:54329/reset");
 });
@@ -49,16 +71,20 @@ test("selected event stays attached to its form and duplicate UI", async ({ page
 
 test("unavailable selected event never silently switches to another event", async ({ page }, info) => {
   await page.goto("/?event=missing-event");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("This event is no longer available for RSVP");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("This event is no longer available");
   await captureState(page, info, "rsvp-event-unavailable");
+  await expectCenteredEventClosed(page);
+  await expect(page.getByRole("link", { name: "View available events" })).toHaveAttribute("href", "/");
   await expect(page.locator("form")).toHaveCount(0);
 });
 
 test("no eligible events shows an accurate empty state", async ({ page, request }, info) => {
   await request.post("http://127.0.0.1:54329/no-events");
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("No events are currently open for RSVP");
-  await captureState(page, info, "rsvp-closed");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("No events are currently open.");
+  await captureState(page, info, "event-closed");
+  await expectCenteredEventClosed(page);
+  await expect(page.getByRole("link", { name: "View available events" })).toHaveCount(0);
   await expect(page.locator("form")).toHaveCount(0);
 });
 
