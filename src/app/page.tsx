@@ -9,10 +9,10 @@ import SiteFooter from "@/components/layout/SiteFooter";
 import SiteHeader from "@/components/layout/SiteHeader";
 import RsvpExperience from "@/components/rsvp/RsvpExperience";
 import RsvpResult from "@/components/rsvp/RsvpResult";
-import RsvpClosed from "@/components/rsvp/RsvpClosed";
 import { getAvailableRsvpEvents, type RsvpEvent } from "@/lib/rsvp/rsvp-event";
 import { submitRsvp } from "./actions";
 import { diagnosticReference, reportRsvpFailure, RsvpDiagnosticError } from "@/lib/rsvp/rsvp-diagnostics";
+import EventClosed from "@/components/rsvp/EventClosed";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +45,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
     event = events.find((item) => item.slug === requested);
   }
 
-  let content = <RsvpClosed selectedEventUnavailable={requested !== undefined} />;
+  let content = <EventClosed selectedEventUnavailable={requested !== undefined} />;
   if (event?.admission_mode === "ticketed" && event.sales_closed) {
     content = <TicketResult kind="closed" event={event} />;
   } else if (event?.open && event.admission_mode === "ticketed") {
@@ -79,12 +79,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   }
 
   return (
-    <div data-payment-page className="paper-surface mx-auto w-full overflow-clip border-x border-[#8b572e45] shadow-[0_0_60px_#35271935]">
+    <div data-payment-page className={`paper-surface mx-auto w-full overflow-clip border-x border-[#8b572e45] shadow-[0_0_60px_#35271935] ${!event ? "flex min-h-dvh flex-col" : ""}`}>
       <a href="#main" className="bg-surface absolute -top-25 left-4 z-30 px-5 py-3">
         Skip to content
       </a>
       <SiteHeader ticketed={event?.admission_mode === "ticketed"} />
-      <main id="main">{content}</main>
+      <main id="main" className={!event ? "flex flex-1 items-center justify-center" : undefined}>{content}</main>
       <SiteFooter />
     </div>
   );
