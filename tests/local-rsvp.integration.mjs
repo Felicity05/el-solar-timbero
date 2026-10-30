@@ -71,13 +71,14 @@ try {
     assert.equal(await sql(`select email from public.contacts where phone=${literal(phone)}`), "new@example.com");
     assert.equal(await sql(`select submitted_email from public.rsvps where phone=${literal(phone)} and event_slug=${literal(`${prefix}first`)}`), "local@example.com");
   });
-  await check("closed, completed, missing and unsupported events reject server calls", async () => {
+  await check("closed, completed and missing events reject server calls; recurring notices require acknowledgment", async () => {
     assert.equal(await submit("closed"), "closed");
     assert.equal(await submit("completed"), "closed");
     assert.equal(await submit("missing"), "invalid_event");
-    assert.equal(await submit("unsupported"), "unsupported_disclaimer");
+    assert.equal(await submit("unsupported"), "acknowledgment_required");
+    assert.equal(await submit("unsupported", phone, "Local Test", "local@example.com", true, "unknown-v1"), "success");
   });
-  await check("promotion requires actual acknowledgment and the displayed supported version", async () => {
+  await check("promotion requires actual acknowledgment and the exact displayed version", async () => {
     assert.equal(await submit("promotion"), "acknowledgment_required");
     assert.equal(await submit("promotion", phone, "Local Test", "local@example.com", true, "stale"), "acknowledgment_required");
     assert.equal(await submit("promotion", phone, "Local Test", "local@example.com", true, "2026-10-12-v1"), "success");

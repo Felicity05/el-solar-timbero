@@ -151,3 +151,11 @@ No new domain registration, DNS change or Stripe payment-method redesign is need
 If the new deployment fails, restore the prior known-good Vercel deployment, then revert/fix through the PR flow. A code rollback does not undo migrations or check-in timestamps. Leave the additive RPC migrations and sold-ticket data intact; do not reset `checked_in_at` or regenerate tokens as a rollback mechanism. Review Vercel's rollback/promotion status before resuming automatic production releases.
 
 Detailed references: [check-in](check-in.md), [ticketing](ticketing.md), [ticket email](ticket-email.md), [database model](database.md), [Vercel Git integration](https://vercel.com/docs/git/vercel-for-github), [Vercel rollback](https://vercel.com/docs/instant-rollback).
+
+## Recurring-event disclaimer fix — October 30, 2026
+
+Apply the new `20261030194117_recurring_event_disclaimer_versions.sql` migration after earlier migrations, then deploy the matching application changes. It removes October-only version guards from both ticket initialization and normalized RSVP submission; no rows, existing acknowledgments, ticket credentials or payment behavior are rewritten. Test locally before reviewing/applying remotely. The application discovery and free-RSVP lookup also stop filtering by old event versions. Non-NULL versions require explicit acknowledgment matching the current server-configured version; NULL means no promotion.
+
+RSVP availability still requires published/future status, `rsvp_open`, and no `RSVP_ENABLED=false` emergency override. Those controls do not disable ticketed events. Ticket sales retain their own mode, price, currency, active-type, sales-window and 5 PM Eastern rules. Staff check-in intentionally uses a separately configured `CHECK_IN_EVENT_SLUG`; update it for each door event.
+
+No runtime event date/slug/version is hardcoded as an allowlist. Intentional product settings remain: USD/card-only payments, 5 PM Eastern, referral choices and the current Guantanamera gift-card copy ($15 for paid tickets). NULL disables that promotion; changing the provider, amount or terms needs matching disclosure-copy changes, not merely a new version label. Stripe's pinned request API date is a compatibility setting, not an event date.

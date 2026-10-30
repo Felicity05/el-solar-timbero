@@ -19,7 +19,7 @@ export default function RsvpResult({ kind, event }: { event: RsvpEvent; kind: "s
       </>
     );
     subtitle = "¡Nos vemos esta noche en El Solar!";
-    description = <p className="mobile:text-[16px] mx-auto max-w-115 text-[18px] leading-[1.4]">Join us tonight at Guantanamera for Cuban music, dance, and community.</p>;
+    description = <p className="mobile:text-[16px] mx-auto max-w-115 text-[18px] leading-[1.4]">Join us tonight at {event?.venue_name ?? "the venue"} for Cuban music, dance, and community.</p>;
   } else if (success) {
     title = (
       <>

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { clientIp, rateLimitKey } from "../src/lib/rsvp/rsvp-rate-limit";
 import { processRsvp } from "../src/lib/rsvp/rsvp-submit";
-import { disclaimerVersion } from "../src/lib/rsvp/rsvp";
+const disclaimerVersion = "2026-10-12-v1"; // Historical test fixture only.
 
 const eventSlug = "cuban-night-social-2026-10-12";
 const event = { slug: eventSlug, disclaimer_version: disclaimerVersion };

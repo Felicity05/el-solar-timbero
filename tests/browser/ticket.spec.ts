@@ -321,3 +321,30 @@ test("attendee details remain editable after card loads and reuse the same pendi
   expect(changed.orders).toHaveLength(2);
   expect(changed.intents).toHaveLength(2);
 });
+
+for (const url of ["/", "/?event=cuban-night-social-2026-11-09"]) {
+  test(`November ticket returned by discovery renders the purchase experience at ${url}`, async ({ page, request }) => {
+    await request.post("http://127.0.0.1:54329/fixture", { data: { novemberTicket: true } });
+    await page.goto(url);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("LOCAL ONLY — November 9 Event");
+    await expect(page.getByText("No events are currently open.")).toHaveCount(0);
+    await page.getByRole("button", { name: "Get Ticket", exact: true }).click();
+    await expect(page.getByLabel("Name", { exact: true })).toBeVisible();
+    await expect(page.getByText("General Admission", { exact: false })).toBeVisible();
+    await expect(page.getByText("$10", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("checkbox")).toHaveCount(1);
+    await expect(page.locator('[name="displayed_disclaimer_version"]')).toHaveValue("2026-11-09-v1");
+    await fillTicket(page);
+    await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toHaveCount(0);
+    // Keyboard activation avoids racing the CTA's ongoing smooth scroll.
+    await page.getByRole("checkbox").focus();
+    await page.getByRole("checkbox").press("Space");
+    await expect(page.getByRole("checkbox")).toBeChecked();
+    await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+    const state = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+    expect(state.orders).toHaveLength(1);
+    expect(state.orders[0].disclaimer_version).toBe("2026-11-09-v1");
+    expect(state.intents).toHaveLength(1);
+    expect(state.intents[0].amount).toBe(1000);
+  });
+}

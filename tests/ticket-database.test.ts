@@ -357,7 +357,7 @@ test("paid gift-card acknowledgment is enforced atomically and October 26 draft 
     assert.equal(snapshot.disclaimer_version, "2026-10-26-ticket-gift-card-v1");
     assert.equal((await call(true, snapshot.disclaimer_version)).order_id, order.order_id);
     await db.exec("update public.events set gift_card_disclaimer_version='unsupported' where slug='paid-test'");
-    assert.equal((await call(true, "unsupported")).status, "unsupported_disclaimer");
+    assert.equal((await call(true, "unsupported")).status, "disclaimer_changed", "a new configured version does not rewrite an existing order acknowledgment");
     const historicalBefore = (await db.query<{ v: unknown }>("select jsonb_agg(to_jsonb(r)) v from public.rsvps r")).rows[0].v;
     await db.exec(readFileSync(new URL("../supabase/events/2026-10-26-ticketed.sql", import.meta.url), "utf8"));
     const event = (
@@ -488,5 +488,43 @@ test("5 PM migration extends default noon windows only, preserving custom/histor
     assert.deepEqual((await db.query("select * from public.rsvps order by id")).rows, rsvpsBefore);
     assert.equal((await db.query("select * from public.orders")).rows.length, 0);
     assert.equal((await db.query("select * from public.tickets")).rows.length, 0);
+  } finally { await db.close(); }
+});
+
+test("recurring ticket and RSVP versions require exact acknowledgment without event-date allowlists", async () => {
+  const db = await fixture();
+  try {
+    const history = (await db.query("select * from public.rsvps order by id")).rows;
+    for (const [index, version] of ["2026-11-09-v1", "future-offer-v27"].entries()) {
+      await db.query("update public.events set gift_card_disclaimer_version=$1 where slug='paid-test'", [version]);
+      const phone = `+1202555016${index}`;
+      const paid = async (accepted: boolean, displayed: string | null) => (await db.query<{ value: { status: string } }>(
+        "select public.initialize_ticket_order('paid-test','Test Buyer','buyer@example.com',$1,'Instagram',$2,$3,$4) value", [phone, (index === 0 ? "a" : "b").repeat(64), accepted, displayed],
+      )).rows[0].value.status;
+      assert.equal(await paid(false, version), "disclaimer_required");
+      assert.equal(await paid(true, "stale-version"), "disclaimer_required");
+      assert.equal((await db.query("select * from public.contacts where phone=$1", [phone])).rows.length, 0);
+      assert.equal(await paid(true, version), "pending");
+      assert.equal((await db.query<{ disclaimer_version: string }>("select disclaimer_version from public.orders where submitted_phone=$1", [phone])).rows[0].disclaimer_version, version);
+    }
+    await db.exec(`insert into public.events(slug,name,event_date,starts_at,ends_at,timezone,venue_name,venue_address,status,rsvp_open,admission_mode)
+      values('recurring-rsvp','Recurring RSVP',current_date+365,(current_date+365)::timestamp at time zone 'UTC',(current_date+366)::timestamp at time zone 'UTC','UTC','Future Venue','Local only','published',true,'rsvp')`);
+    for (const [index, version] of ["november-rsvp-v1", "future-rsvp-v2"].entries()) {
+      await db.query("update public.events set gift_card_disclaimer_version=$1 where slug='recurring-rsvp'", [version]);
+      const phone = `+1202555017${index}`;
+      const rsvp = async (accepted: boolean, displayed: string | null) => (await db.query<{ value: string }>(
+        "select public.submit_normalized_rsvp('recurring-rsvp','Test Attendee','attendee@example.com',$1,'Instagram',$2,$3) value", [phone, accepted, displayed],
+      )).rows[0].value;
+      assert.equal(await rsvp(false, version), "acknowledgment_required");
+      assert.equal(await rsvp(true, "stale-version"), "acknowledgment_required");
+      assert.equal(await rsvp(true, version), "success");
+      assert.equal(await rsvp(true, version), "duplicate");
+      assert.equal((await db.query<{ disclaimer_version: string }>("select disclaimer_version from public.rsvps where submitted_phone=$1", [phone])).rows[0].disclaimer_version, version);
+    }
+    assert.deepEqual((await db.query("select * from public.rsvps where event_slug<>'recurring-rsvp' order by id")).rows, history);
+    for (const role of ["anon", "authenticated"]) {
+      assert.equal((await db.query<{ allowed: boolean }>("select has_function_privilege($1,'public.initialize_ticket_order(text,text,text,text,text,text,boolean,text)','EXECUTE') allowed", [role])).rows[0].allowed, false);
+      assert.equal((await db.query<{ allowed: boolean }>("select has_function_privilege($1,'public.submit_normalized_rsvp(text,text,text,text,text,boolean,text)','EXECUTE') allowed", [role])).rows[0].allowed, false);
+    }
   } finally { await db.close(); }
 });

@@ -2,8 +2,6 @@ import "server-only";
 import { z } from "zod";
 import { callRsvpRpc } from "./rsvp-rpc";
 import { reportRsvpFailure } from "./rsvp-diagnostics";
-import { disclaimerVersion } from "./rsvp";
-import { ticketDisclaimerVersion } from "../tickets/promotion";
 import { RSVP_OPEN } from "./rsvp-config";
 
 const eventSchema = z.object({
@@ -24,9 +22,6 @@ const eventSchema = z.object({
   ticket_type_name: z.string().nullable().optional(),
 });
 export type RsvpEvent = z.infer<typeof eventSchema>;
-function supported(event: RsvpEvent) {
-  return event.disclaimer_version === null || event.disclaimer_version === disclaimerVersion;
-}
 
 export async function getAvailableRsvpEvents(): Promise<RsvpEvent[]> {
   const data = await callRsvpRpc("event.discovery", "get_available_rsvp_events");
@@ -44,15 +39,12 @@ export async function getAvailableRsvpEvents(): Promise<RsvpEvent[]> {
     });
   return parsed.data.filter((event) => {
     if (event.admission_mode === "ticketed") {
-      return (
-        (event.disclaimer_version === null || event.disclaimer_version === ticketDisclaimerVersion) &&
-        (event.open || event.sales_closed) &&
-        event.price_cents &&
-        event.currency === "usd" &&
-        event.ticket_type_name
-      );
+      // Ticket availability comes from the RPC, independently of RSVP settings.
+      // A disclosure version identifies the event's acknowledgment; it is not
+      // an event-discovery allowlist tied to the first paid event's date.
+      return (event.open || event.sales_closed) && event.price_cents && event.currency === "usd" && event.ticket_type_name;
     }
-    return event.open && RSVP_OPEN && supported(event);
+    return event.open && RSVP_OPEN;
   });
 }
 
@@ -76,5 +68,5 @@ export async function getRsvpEventForSubmission(slug: string): Promise<RsvpEvent
         code: issue.code,
       })),
     });
-  return parsed.data.slug === slug && supported(parsed.data) ? parsed.data : null;
+  return parsed.data.slug === slug && parsed.data.admission_mode === "rsvp" && parsed.data.open ? parsed.data : null;
 }
