@@ -28,10 +28,10 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         SITE_URL: "http://127.0.0.1:3100",
-        CHECK_IN_PIN: "12345678",
         CHECK_IN_SESSION_SECRET: "test-only-door-signing-secret-not-for-production",
-        CHECK_IN_EVENT_SLUG: "browser-door-event",
         NODE_OPTIONS: "--import ./tests/mock-stripe-preload.mjs",
+        ADMIN_USER_ID: "11111111-1111-4111-8111-111111111111",
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_fixture",
         SUPABASE_URL: "http://127.0.0.1:54329",
         STRIPE_SECRET_KEY: "sk_test_fixture",
         STRIPE_WEBHOOK_SECRET: "whsec_fixture",

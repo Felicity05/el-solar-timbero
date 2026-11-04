@@ -1,21 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createDoorSession, validDoorSession, matchesDoorPin, doorCredential, doorSessionSeconds } from "../src/lib/check-in/security";
-const config = { pin: "12345678", secret: "s".repeat(64), eventSlug: "door-event", siteUrl: "https://elsolartimbero.com" };
+import { createDoorSession, validDoorSession, matchesDoorPin, hashDoorPin, doorCredential, doorSessionSeconds } from "../src/lib/check-in/security";
+const config = { pinHash: hashDoorPin("12345678"), secret: "s".repeat(64), eventSlug: "door-event", siteUrl: "https://elsolartimbero.com" };
 test("door sessions expire, reject tampering and bind PIN, secret and event", () => {
   const now = Date.now();
   const cookie = createDoorSession(config, now);
   assert.ok(validDoorSession(cookie, config, now));
   assert.notEqual(cookie, createDoorSession(config, now));
   assert.ok(!validDoorSession(cookie, config, now + doorSessionSeconds * 1000));
-  for (const changed of [{ pin: "87654321" }, { secret: "t".repeat(64) }, { eventSlug: "other" }]) {
+  for (const changed of [{ pinHash: hashDoorPin("87654321") }, { secret: "t".repeat(64) }, { eventSlug: "other" }]) {
     assert.ok(!validDoorSession(cookie, { ...config, ...changed }, now));
   }
   for (const bad of [undefined, "", `${cookie}x`, cookie.replace(/.$/, cookie.endsWith("a") ? "b" : "a"), "not-a-cookie"]) {
     assert.ok(!validDoorSession(bad, config, now));
   }
-  assert.ok(matchesDoorPin("12345678", config.pin));
-  assert.ok(!matchesDoorPin("1234567", config.pin));
+  assert.ok(matchesDoorPin("12345678", config.pinHash));
+  assert.ok(!matchesDoorPin("1234567", config.pinHash));
 });
 test("scanner accepts sold QR URLs and codes without navigating or accepting foreign credentials", () => {
   const token = "a".repeat(64);
@@ -37,4 +37,14 @@ test("scanner accepts sold QR URLs and codes without navigating or accepting for
   ]) {
     assert.equal(doorCredential(bad, config.siteUrl), null);
   }
+});
+
+test("door PIN hashes are salted, one-way and reject malformed input", () => {
+  const first = hashDoorPin("12345678"),
+    second = hashDoorPin("12345678");
+  assert.notEqual(first, second);
+  assert.ok(matchesDoorPin("12345678", first));
+  assert.ok(!matchesDoorPin("00000000", first));
+  assert.ok(!matchesDoorPin("12345678", "12345678"));
+  assert.ok(!first.includes("12345678"));
 });

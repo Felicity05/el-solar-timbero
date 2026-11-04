@@ -6,12 +6,12 @@ export const metadata: Metadata = { title: "Door Check-In | El Solar Timbero", r
 export default async function CheckInPage() {
   let authenticated = false;
   try {
-    authenticated = await doorAuthenticated(doorConfig());
+    authenticated = await doorAuthenticated(await doorConfig());
   } catch {
     return (
       <main className="paper-surface text-navy min-h-screen p-8 text-center">
         <h1 className="font-heading text-4xl">Door check-in is unavailable</h1>
-        <p>Please ask the organizer to configure staff access.</p>
+        <p>No active event has a door PIN available. Please ask the organizer to check Admin.</p>
       </main>
     );
   }

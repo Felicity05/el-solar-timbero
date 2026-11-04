@@ -1,26 +1,22 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { ticketRpc } from "../tickets/server";
 import { invalidDoorReasons } from "./invalid-reasons";
 import { doorCookieName, validDoorSession, type DoorConfig } from "./security";
 
-export function doorConfig(): DoorConfig {
-  const pin = process.env.CHECK_IN_PIN ?? "";
+export async function doorConfig(): Promise<DoorConfig> {
   const secret = process.env.CHECK_IN_SESSION_SECRET ?? "";
-  const eventSlug = process.env.CHECK_IN_EVENT_SLUG ?? "";
   const siteUrl = process.env.SITE_URL ?? "";
   const site = new URL(siteUrl);
-  if (
-    !/^\d{6,12}$/.test(pin) ||
-    secret.length < 32 ||
-    !/^[a-z0-9][a-z0-9-]{0,199}$/.test(eventSlug) ||
-    site.username ||
-    site.password ||
-    (site.protocol !== "https:" && !(site.protocol === "http:" && ["localhost", "127.0.0.1"].includes(site.hostname)))
-  ) {
+  if (secret.length < 32 || site.username || site.password || (site.protocol !== "https:" && !(site.protocol === "http:" && ["localhost", "127.0.0.1"].includes(site.hostname))))
     throw new Error("Door configuration unavailable");
-  }
-  return { pin, secret, eventSlug, siteUrl };
+  const event = z
+    .object({ slug: z.string(), pin_hash: z.string().regex(/^scrypt\$[a-f0-9]{32}\$[a-f0-9]{128}$/) })
+    .nullable()
+    .parse(await ticketRpc("get_active_door_event", {}));
+  if (!event) throw new Error("No active event with a door PIN");
+  return { secret, siteUrl, pinHash: event.pin_hash, eventSlug: event.slug };
 }
 export async function doorAuthenticated(config: DoorConfig) {
   return validDoorSession((await cookies()).get(doorCookieName)?.value, config);
@@ -32,5 +28,8 @@ const details = {
   checked_in_at: z.string().nullable(),
   timezone: z.string(),
 };
-export const doorResultSchema = z.discriminatedUnion("status", [z.object({ status: z.literal("invalid"), reason: z.enum(invalidDoorReasons).default("unknown") }), z.object({ status: z.enum(["valid", "checked_in", "already_checked_in"]), ...details })]);
+export const doorResultSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("invalid"), reason: z.enum(invalidDoorReasons).default("unknown") }),
+  z.object({ status: z.enum(["valid", "checked_in", "already_checked_in"]), ...details }),
+]);
 export type DoorResult = z.infer<typeof doorResultSchema> | { status: "unauthorized" } | { status: "error"; message: string };

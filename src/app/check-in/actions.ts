@@ -8,7 +8,7 @@ import { clientIp } from "@/lib/rsvp/rsvp-rate-limit";
 
 export async function unlockDoor(pin: string): Promise<{ status: "ok" | "error"; message?: string }> {
   try {
-    const config = doorConfig();
+    const config = await doorConfig();
     const ip = clientIp(await headers(), { vercel: process.env.VERCEL, trustedHeader: process.env.RSVP_TRUSTED_IP_HEADER });
     for (const [scope, value] of [
       ["ip", ip],
@@ -20,7 +20,7 @@ export async function unlockDoor(pin: string): Promise<{ status: "ok" | "error";
         return { status: "error", message: "Too many attempts. Please wait before trying again." };
       }
     }
-    if (typeof pin !== "string" || pin.length > 12 || !matchesDoorPin(pin, config.pin)) {
+    if (typeof pin !== "string" || pin.length > 12 || !matchesDoorPin(pin, config.pinHash)) {
       return { status: "error", message: "Incorrect PIN." };
     }
     (await cookies()).set(doorCookieName, createDoorSession(config), {
@@ -42,7 +42,7 @@ export async function lockDoor() {
 
 async function operate(input: string, rpc: string): Promise<DoorResult> {
   try {
-    const config = doorConfig();
+    const config = await doorConfig();
     if (!(await doorAuthenticated(config))) {
       return { status: "unauthorized" };
     }

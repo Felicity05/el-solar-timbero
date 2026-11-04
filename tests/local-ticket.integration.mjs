@@ -6,6 +6,8 @@ import { randomBytes } from "node:crypto";
 const exec = promisify(execFile);
 const docker = process.env.LOCAL_DOCKER_BIN || "/Applications/Docker.app/Contents/Resources/bin/docker";
 const container = "supabase_db_el-solar-timbero";
+const testDatabase = process.env.LOCAL_TICKET_TEST_DATABASE || "postgres";
+if (testDatabase !== "postgres" && !/^el_solar_test_[a-z0-9_]+$/.test(testDatabase)) throw new Error("Invalid local test database");
 const prefix = "local-ticket-integration-";
 const phone = "+12025550181",
   other = "+12025550182",
@@ -20,7 +22,7 @@ const lit = (v) => {
   return `'${String(v).replaceAll("'", "''")}'`;
 };
 async function sql(query) {
-  const { stdout } = await exec(docker, ["exec", container, "psql", "-X", "-U", "postgres", "-d", "postgres", "-At", "-v", "ON_ERROR_STOP=1", "-c", query]);
+  const { stdout } = await exec(docker, ["exec", container, "psql", "-X", "-U", "postgres", "-d", testDatabase, "-At", "-v", "ON_ERROR_STOP=1", "-c", query]);
   return stdout.trim().split("\n").at(-1);
 }
 async function init(number = phone, access = hash) {
