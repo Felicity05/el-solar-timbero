@@ -1,3 +1,5 @@
+> Admin V1 deployment update: follow [docs/admin.md](admin.md) for the new scheduling/PIN migration, single Supabase Auth owner and environment variables. Remove legacy `CHECK_IN_PIN` and `CHECK_IN_EVENT_SLUG` after upgrading. Generate per-event PINs in Admin instead.
+
 # El Solar Timbero production launch
 
 This is an operator checklist. No production action has been performed automatically.

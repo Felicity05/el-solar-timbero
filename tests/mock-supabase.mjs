@@ -1,5 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, scryptSync } from "node:crypto";
 // Local HTTP stand-in only: production code has no mock or demo bypass.
+import { mockAdmin } from "./mock-admin.mjs";
 import { createServer } from "node:http";
 const rows = new Map();
 const counters = new Map();
@@ -18,6 +19,8 @@ function ticketStatus(order) {
 }
 createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
+  if (await mockAdmin(req, res)) return;
+  if (req.url === "/rest/v1/rpc/get_active_door_event") return res.end(JSON.stringify({slug:"browser-door-event",pin_hash:`scrypt$${"a".repeat(32)}$${scryptSync("12345678", "a".repeat(32), 64).toString("hex")}`}));
   if (req.url === "/health") return res.end("{}");
   if (req.url === "/reset" && req.method === "POST") {
     doorCheckedAt = null;

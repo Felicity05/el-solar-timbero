@@ -2,14 +2,14 @@
 
 Existing sold QR codes stay unchanged: `{SITE_URL}/tickets/{ticket_token}?view=card`. Older URLs without the query work too. Public ticket pages remain read-only. The staff scanner extracts the existing credential locally; it never navigates to or fetches a scanned URL. Only the configured site's origin (including its HTTPS www/apex alias) is accepted. Manual entry uses the existing `EST-…` ticket code.
 
-Apply the new `20261022172251_staff_ticket_check_in.sql` migration through your normal reviewed deployment process. It adds two restricted functions only, with no backfill or changes to sold tickets. No new table or ticket identifier is created.
+The original `20261022172251_staff_ticket_check_in.sql` migration adds the check-in functions. Admin V1 additionally requires `20261102221255_admin_v1_scheduling_and_door_pins.sql`. See [Admin setup](admin.md). Sold ticket credentials and QR URLs remain unchanged.
 
 Configure these **server-only** environment variables locally and in Vercel:
 
-- `CHECK_IN_PIN`: shared 6–12 digit door PIN; prefer at least 8 digits.
-- `CHECK_IN_EVENT_SLUG`: exact existing ticketed event slug. The browser cannot choose an event.
 - `CHECK_IN_SESSION_SECRET`: independent random signing secret, at least 32 characters. Generate with `openssl rand -hex 32`.
 - `SITE_URL`: existing canonical website URL. Continue using the existing server-only Supabase configuration.
+
+Generate the event’s PIN in `/admin/events/[id]` and share it privately with staff. The database resolves the currently published, released, unended ticketed event. `CHECK_IN_PIN` and `CHECK_IN_EVENT_SLUG` are obsolete and can be removed after migration/deployment. Only salted scrypt hashes are stored; regeneration invalidates sessions.
 
 Staff open `/check-in` on their phone, enter the PIN (the eye toggle can reveal/hide it) and allow camera access. Camera access needs HTTPS (localhost is suitable for local development). No app installation is needed. Use rear-camera scanning or the manual ticket-code fallback. Scanning **only validates**. Staff must press **Check In** to admit. **Scan Next** returns to scanning; **Lock Scanner** removes the cookie.
 
@@ -19,4 +19,4 @@ The signed session expires after four hours. It is HttpOnly, SameSite=Strict, re
 
 Both SECURITY DEFINER functions have an empty fixed search path and schema-qualified tables. EXECUTE is revoked from PUBLIC, anon and authenticated; only the server's service_role can execute them. Direct ticket-table privileges stay revoked. Next.js Server Actions provide same-origin mutation protection. Staff pages are no-store/noindex/no-referrer. Possession of a public ticket URL never grants admission authority.
 
-Browser camera scanning uses `qr-scanner`; existing public QR rendering and tokens are unchanged. Local database/concurrency coverage runs with `npm run test:local:tickets` after applying migrations **locally**. This test creates and cleans its own local-only fixtures and uses separate PostgreSQL connections for simultaneous admissions.
+Browser camera scanning uses `qr-scanner`; existing public QR rendering and tokens are unchanged. Local database/concurrency coverage runs with `node tests/local-admin.integration.mjs`. It creates a disposable database in local Supabase, applies migrations there, and uses separate PostgreSQL connections for simultaneous admissions before dropping its own database.

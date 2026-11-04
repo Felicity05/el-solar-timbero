@@ -1,3 +1,5 @@
+> Admin V1 deployment update: follow the [current Admin V1 production checklist](admin.md#production-release-checklist--admin-v1) for the new scheduling/PIN migration, single Supabase Auth owner and environment variables. Remove legacy `CHECK_IN_PIN` and `CHECK_IN_EVENT_SLUG` after upgrading. Generate per-event PINs in Admin instead.
+
 # Deploy El Solar Timbero
 
 This guide covers updates to the existing live Next.js site: normalized RSVP, paid tickets, ticket email and staff check-in. It does not require a new Vercel project, new DNS records or recreating existing events/tickets. Preserve sold tickets, their tokens and the existing QR payload.
@@ -56,15 +58,15 @@ Configure **Vercel → Project → Settings → Environment Variables → Produc
 | `GMAIL_USER` | Sending Gmail address |
 | `GMAIL_APP_PASSWORD` | Gmail App Password, never the normal account password |
 | `TICKET_EMAIL_FROM` | Optional display name or configured/verified Gmail send-as address |
-| `CHECK_IN_PIN` | Privately chosen 6–12 digit door PIN; prefer at least 8 digits |
-| `CHECK_IN_EVENT_SLUG` | Exact slug of the existing production ticketed event staff will admit |
+| `ADMIN_USER_ID` | UUID of your one authorized Supabase Auth user (server-only) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Matching public Auth publishable key; never a server secret |
 | `CHECK_IN_SESSION_SECRET` | Independent random signing secret, at least 32 characters |
 
-Generate the door signing secret locally with `openssl rand -hex 32`, then paste it privately into Vercel. Never prefix any server secret, PIN or event-slug setting with `NEXT_PUBLIC_`. Staff receive the PIN privately; it is not emailed to customers.
+Generate the door signing secret locally with `openssl rand -hex 32`, then paste it privately into Vercel. Never prefix server secrets or `ADMIN_USER_ID` with `NEXT_PUBLIC_`. Generate the per-event door PIN in Admin and share it privately; it is not emailed to customers.
 
-The October 23 review found the three `CHECK_IN_*` values missing from local `.env.production`; verify Vercel independently. Do not copy local IPs, local Supabase keys or Stripe sandbox keys into Production. Vercel supplies `VERCEL=1` for trusted IP rate limiting; leave `RSVP_TRUSTED_IP_HEADER` unset on Vercel.
+Verify `CHECK_IN_SESSION_SECRET` and the new admin Auth settings in Vercel independently. The per-event PIN/slug environment settings are no longer used. Do not copy local IPs, local Supabase keys or Stripe sandbox keys into Production. Vercel supplies `VERCEL=1` for trusted IP rate limiting; leave `RSVP_TRUSTED_IP_HEADER` unset on Vercel.
 
-For Preview/staging use separate non-production Supabase data, Stripe test keys, an appropriate HTTPS `SITE_URL`, a test event slug and separate door credentials. Do not give unreviewed preview code production database credentials or use a preview against sold customer tickets.
+For Preview/staging use separate non-production Supabase data, Stripe test keys, an appropriate HTTPS `SITE_URL`, a local/test Auth owner and separately generated event PIN. Do not give unreviewed preview code production database credentials or use a preview against sold customer tickets.
 
 Sources: [Vercel environment variables](https://vercel.com/docs/environment-variables), [Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
 
@@ -113,7 +115,7 @@ Every result should be true. RSVP uses `submit_normalized_rsvp`, not direct `rsv
 
 ## 4. Verify the event and Stripe endpoint
 
-Set `CHECK_IN_EVENT_SLUG` to the actual live event, not `dev-ticket-test-2026-12-30`. In Supabase confirm that event is `published` and `ticketed`. Ticket sales additionally require a future start, open `ticket_sales_open`, one active General Admission type, `price_cents=1000`, USD and an open sales window. After the new cutoff migration, the database enforces 5 PM Eastern (`America/New_York`) on the event date, with daylight saving handled automatically. Closed sales do not prevent staff admission. Do not reopen sales just to enable check-in.
+In Admin confirm the live event is published, has reached `publish_at`, has not ended and is ticketed. Generate its door PIN there. The database resolves it automatically. Ticket sales additionally require a future start, open `ticket_sales_open`, one active General Admission type, `price_cents=1000`, USD and an open sales window. After the new cutoff migration, the database enforces 5 PM Eastern (`America/New_York`) on the event date, with daylight saving handled automatically. Closed sales do not prevent staff admission. Do not reopen sales just to enable check-in.
 
 In the **LIVE** Stripe account, confirm the existing event destination is exactly:
 
@@ -139,7 +141,7 @@ No new domain registration, DNS change or Stripe payment-method redesign is need
 ## 6. Post-deployment checks
 
 - Open the public event and an existing customer ticket link. Existing `/tickets/{token}?view=card` QRs must still resolve to their public ticket; no customer PIN is required and viewing never admits anyone.
-- Open `https://www.elsolartimbero.com/check-in` on an actual staff phone. Enter the private PIN, test show/hide, allow camera access and confirm the session survives refresh. The session lasts four hours; Lock Scanner clears it. Changing the PIN, signing secret or configured event invalidates old sessions after deployment.
+- Open `https://www.elsolartimbero.com/check-in` on an actual staff phone. Enter the private PIN, test show/hide, allow camera access and confirm the session survives refresh. The session lasts four hours; Lock Scanner clears it. Regenerating the PIN or changing the active event/signing secret invalidates old sessions. PIN/event updates do not require redeployment.
 - Validate a ticket for the configured event. Validation must show event/type/code without setting `checked_in_at`. Test actual admission, repeated admission and simultaneous attempts on a dedicated staging/test ticket; do not consume a real attendee's admission just to smoke-test production.
 - Confirm wrong-event/unknown credentials are rejected with explanations and session expiry requires the PIN again. Check in an actual customer only when admitting them at the door.
 - Verify an RSVP-mode event still uses its RSVP form. Verify the paid mode retains Get Ticket, embedded card-only Payment Element and Buy Now. Exercise declines and repeated webhooks in staging/test mode. Any deliberate live payment smoke test is a real $10 charge and needs explicit owner intent.
@@ -156,6 +158,6 @@ Detailed references: [check-in](check-in.md), [ticketing](ticketing.md), [ticket
 
 Apply the new `20261030194117_recurring_event_disclaimer_versions.sql` migration after earlier migrations, then deploy the matching application changes. It removes October-only version guards from both ticket initialization and normalized RSVP submission; no rows, existing acknowledgments, ticket credentials or payment behavior are rewritten. Test locally before reviewing/applying remotely. The application discovery and free-RSVP lookup also stop filtering by old event versions. Non-NULL versions require explicit acknowledgment matching the current server-configured version; NULL means no promotion.
 
-RSVP availability still requires published/future status, `rsvp_open`, and no `RSVP_ENABLED=false` emergency override. Those controls do not disable ticketed events. Ticket sales retain their own mode, price, currency, active-type, sales-window and 5 PM Eastern rules. Staff check-in intentionally uses a separately configured `CHECK_IN_EVENT_SLUG`; update it for each door event.
+RSVP availability still requires published/future status, `rsvp_open`, and no `RSVP_ENABLED=false` emergency override. Those controls do not disable ticketed events. Ticket sales retain their own mode, price, currency, active-type, sales-window and 5 PM Eastern rules. Staff check-in now resolves the released, unended ticketed event from the database; manage its PIN in Admin without redeploying.
 
 No runtime event date/slug/version is hardcoded as an allowlist. Intentional product settings remain: USD/card-only payments, 5 PM Eastern, referral choices and the current Guantanamera gift-card copy ($15 for paid tickets). NULL disables that promotion; changing the provider, amount or terms needs matching disclosure-copy changes, not merely a new version label. Stripe's pinned request API date is a compatibility setting, not an event date.

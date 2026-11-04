@@ -1,14 +1,20 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 export const doorSessionSeconds = 4 * 60 * 60;
 export const doorCookieName = "el_solar_door";
-export type DoorConfig = { pin: string; secret: string; eventSlug: string; siteUrl: string };
-const digest = (value: string) => createHash("sha256").update(value).digest();
-export function matchesDoorPin(input: string, pin: string) {
-  return timingSafeEqual(digest(input), digest(pin));
+export type DoorConfig = { pinHash: string; secret: string; eventSlug: string; siteUrl: string };
+export function hashDoorPin(pin: string) {
+  if (!/^\d{6,12}$/.test(pin)) throw new Error("Invalid PIN format");
+  const salt = randomBytes(16).toString("hex");
+  return `scrypt$${salt}$${scryptSync(pin, salt, 64).toString("hex")}`;
+}
+export function matchesDoorPin(input: string, pinHash: string) {
+  if (!/^\d{6,12}$/.test(input) || !/^scrypt\$[a-f0-9]{32}\$[a-f0-9]{128}$/.test(pinHash)) return false;
+  const [, salt, hash] = pinHash.split("$");
+  return timingSafeEqual(scryptSync(input, salt, 64), Buffer.from(hash, "hex"));
 }
 function signature(value: string, config: DoorConfig) {
-  return createHmac("sha256", config.secret).update(`door-v1:${config.pin}:${config.eventSlug}:${value}`).digest("hex");
+  return createHmac("sha256", config.secret).update(`door-v2:${config.pinHash}:${config.eventSlug}:${value}`).digest("hex");
 }
 export function createDoorSession(config: DoorConfig, now = Date.now()) {
   const value = `${Math.floor(now / 1000) + doorSessionSeconds}.${randomBytes(16).toString("hex")}`;
