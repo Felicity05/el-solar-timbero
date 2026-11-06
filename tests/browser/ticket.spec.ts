@@ -108,6 +108,7 @@ test("ticket CTA stays on page; styled $10 form initializes once and embeds Paym
   await captureState(page, info, "ticket-ready-overlay");
   releaseNavigation();
   await expect(page.getByRole("heading", { name: "You're in!", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get Ticket", exact: true })).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText(/^EST-[A-F0-9]{12}$/)).toBeVisible();
   await expect(page.getByText("Save or screenshot your ticket.")).toBeVisible();
@@ -115,6 +116,12 @@ test("ticket CTA stays on page; styled $10 form initializes once and embeds Paym
   await expect(page.locator(".event-date")).toHaveCount(1);
   await expect(page.locator(".event-date time")).toHaveAttribute("datetime", "2026-12-30");
   await expect(page.locator(".event-location").first()).toHaveText("$10");
+  const confirmedTicketUrl = page.url();
+  await page.goto(`${confirmedTicketUrl}?status=duplicate`);
+  await expect(page.getByRole("heading", { name: "You already have a ticket!", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get Ticket", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "Ticket QR code", exact: true })).toHaveCount(1);
+  await page.goto(confirmedTicketUrl);
   await captureState(page, info, "ticket-success");
   const ticketLink = page.getByRole("link", { name: "Open your ticket", exact: true });
   await expect(ticketLink).toHaveAttribute("href", /\/tickets\/[a-f0-9]{64}\?view=card$/);
@@ -226,6 +233,7 @@ test("already purchased without browser credential shows event details but no ti
   await fillTicket(page);
   await expect(page.getByRole("heading", { name: "You already have a ticket!", exact: true })).toBeVisible();
   await expect(page.getByText(/use your saved ticket link or contact @el_solar_timbero/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get Ticket", exact: true })).toHaveCount(0);
   await expect(page.locator(".event-date")).toHaveCount(1);
   await expect(page.locator(".event-date time")).toHaveAttribute("datetime", "2026-12-30");
   await expect(page.locator(".event-location").first()).toHaveText("$10");

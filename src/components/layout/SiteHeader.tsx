@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { RSVP_OPEN } from "@/lib/rsvp/rsvp-config";
 
-export default function SiteHeader({ ticketed = false }: { ticketed?: boolean }) {
+export default function SiteHeader({ ticketed = false, showEventCta = false }: { ticketed?: boolean; showEventCta?: boolean }) {
   let cta = "Tonight’s event";
   if (RSVP_OPEN) {
     cta = "RSVP";
@@ -33,12 +33,14 @@ export default function SiteHeader({ ticketed = false }: { ticketed?: boolean })
         un solar.
       </p>
       <div className="mobile:gap-2 flex shrink-0 items-center gap-4">
-        <a
-          href={ticketed ? "#ticket-purchase" : "#rsvp-title"}
-          className="print-brush font-heading text-surface mobile:hidden inline-flex min-h-11 items-center px-7 py-2 text-[23px] uppercase hover:[--print-color:var(--color-primary-hover)]"
-        >
-          {cta}
-        </a>
+        {showEventCta && (
+          <a
+            href={ticketed ? "#ticket-purchase" : "#rsvp-title"}
+            className={`print-brush font-heading text-surface mobile:hidden inline-flex min-h-11 items-center px-7 py-2 text-[23px] uppercase hover:[--print-color:var(--color-primary-hover)] ${ticketed ? "[[data-payment-page]:has(#result-title)_&]:hidden" : ""}`}
+          >
+            {cta}
+          </a>
+        )}
         <a
           className="group inline-flex min-h-12 items-center justify-center gap-3 text-left text-[14px] leading-[1.3]"
           aria-label="Follow El Solar Timbero on Instagram"

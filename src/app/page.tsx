@@ -88,7 +88,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <a href="#main" className="bg-surface absolute -top-25 left-4 z-30 px-5 py-3">
         Skip to content
       </a>
-      <SiteHeader ticketed={event?.admission_mode === "ticketed"} />
+      <SiteHeader showEventCta ticketed={event?.admission_mode === "ticketed"} />
       <main id="main" className={!event ? "flex flex-1 items-center justify-center" : undefined}>
         {content}
       </main>

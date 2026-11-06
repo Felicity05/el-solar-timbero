@@ -44,7 +44,7 @@ export default async function TicketPage({ params, searchParams }: { params: Pro
 
   return (
     <div className="paper-surface mx-auto w-full overflow-clip border-x border-[#8b572e45] shadow-[0_0_60px_#35271935]">
-      <SiteHeader ticketed />
+      <SiteHeader />
       <main>
         <TicketResult kind={duplicate ? "duplicate" : "success"} ticket={ticket} />
       </main>
