@@ -39,7 +39,7 @@ export async function initializeTicket(eventSlug: string, credential: string, fo
         };
     }
     const event = (await getAvailableRsvpEvents()).find((item) => item.slug === eventSlug && item.admission_mode === "ticketed");
-    if (!event?.open) {
+    if (!event || (!event.open && !event.sold_out)) {
       return { status: "closed" };
     }
     const submission = validateTicketAttendee(formData, event.disclaimer_version);
@@ -63,11 +63,18 @@ export async function ticketStatus(eventSlug: string, credential: string): Promi
 
 // Read-only availability check immediately before Stripe confirmation; price and
 // order creation still belong to the existing transactional initialization RPC.
-export async function checkTicketSales(slug: string): Promise<"open" | "closed" | "unavailable"> {
+export async function checkTicketSales(slug: string, credential?: string): Promise<"open" | "closed" | "unavailable" | "expired" | "sold_out"> {
   try {
+    if (credential && accessSchema.safeParse(credential).success) {
+      const { accessHash } = await import("@/lib/tickets/server");
+      const status = await ticketRpc("check_ticket_reservation", { p_event_slug: slug, p_access_hash: accessHash(credential) });
+      if (["open", "closed", "expired"].includes(status)) return status;
+      throw new Error("Invalid reservation response");
+    }
     const { getAvailableRsvpEvents } = await import("@/lib/rsvp/rsvp-event");
     const event = (await getAvailableRsvpEvents()).find((item) => item.slug === slug && item.admission_mode === "ticketed");
-    return event?.open ? "open" : "closed";
+    if (event?.open) return "open";
+    return event?.sold_out ? "sold_out" : "closed";
   } catch (error) {
     ticketFailure("sales.check", error);
     return "unavailable";

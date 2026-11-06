@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Admin | El Solar Timbero", robots: { index: false, follow: false }, referrer: "no-referrer" };
+export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (

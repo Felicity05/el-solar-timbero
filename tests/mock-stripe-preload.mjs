@@ -22,3 +22,13 @@ https.request = function (options, ...args) {
   );
 };
 syncBuiltinESMExports();
+
+// SMTP is stubbed in this test-only process. Never send browser-fixture mail.
+import nodemailer from "nodemailer";
+nodemailer.createTransport = () => ({
+  sendMail: async (message) => {
+    const address = message.to?.address;
+    if (address === "failure@example.com") throw new Error("Fixture SMTP unavailable");
+    return { accepted: [address], rejected: [] };
+  },
+});

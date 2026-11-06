@@ -8,7 +8,8 @@ import { adminAuthClient, requireAdmin } from "../../lib/admin/auth";
 import { isAdminId } from "../../lib/admin/auth-config";
 import { adminRpc, adminError, AdminDatabaseError } from "../../lib/admin/database";
 import { parseAdminEvent, generatedSlugForEvent, type AdminDetail } from "../../lib/admin/events";
-import { hashDoorPin } from "../../lib/check-in/security";
+import { encryptDoorPin, decryptDoorPin } from "../../lib/admin/door-pin";
+import { hashDoorPin, matchesDoorPin } from "../../lib/check-in/security";
 import { clientIp, rateLimitKey } from "../../lib/rsvp/rsvp-rate-limit";
 import { ticketRpc } from "../../lib/tickets/server";
 export type AdminActionState = { error?: string; eventId?: string };
@@ -86,11 +87,49 @@ export async function generateEventPin(id: string): Promise<{ pin?: string; erro
   if (!z.uuid().safeParse(id).success) return { error: "Invalid event." };
   try {
     const pin = String(randomInt(10000000, 100000000));
-    const saved = await adminRpc("admin_set_event_pin", { p_event_id: id, p_pin_hash: hashDoorPin(pin) });
+    const saved = await adminRpc("admin_set_event_pin", { p_event_id: id, p_pin_hash: hashDoorPin(pin), p_pin_ciphertext: encryptDoorPin(pin, id) });
     if (saved !== true) return { error: "Event not found." };
     revalidatePath(`/admin/events/${id}`);
     return { pin };
   } catch (error) {
     return { error: adminError(error) };
+  }
+}
+
+export async function issueComplimentaryTicket(id: string, _state: ComplimentaryActionState, form: FormData): Promise<ComplimentaryActionState> {
+  await requireAdmin();
+  if (!z.uuid().safeParse(id).success) return { error: "Invalid event." };
+  const { validateRsvp } = await import("../../lib/rsvp/rsvp-validation");
+  form.set("referralSource", "Other");
+  const parsed = validateRsvp(form, false);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the attendee details." };
+  try {
+    const { issueComplimentary } = await import("../../lib/admin/complimentary");
+    const result = await issueComplimentary(id, parsed.data);
+    revalidatePath(`/admin/events/${id}`);
+    revalidatePath("/");
+    return result;
+  } catch (error) {
+    return { error: adminError(error) };
+  }
+}
+export type ComplimentaryActionState = { error?: string; ticketCode?: string; ticketUrl?: string; alreadyIssued?: boolean; email?: string };
+
+export async function revealEventPin(id: string): Promise<{ pin?: string; error?: string }> {
+  await requireAdmin();
+  if (!z.uuid().safeParse(id).success) return { error: "Invalid event." };
+  try {
+    const stored = z
+      .object({ pin_hash: z.string().nullable(), pin_ciphertext: z.string().nullable() })
+      .nullable()
+      .parse(await adminRpc("admin_get_event_pin", { p_event_id: id }));
+    if (!stored?.pin_hash) return { error: "No PIN has been generated for this event." };
+    if (!stored.pin_ciphertext) return { error: "This older PIN cannot be recovered from its hash. Regenerate it once to enable secure Show PIN." };
+    const pin = decryptDoorPin(stored.pin_ciphertext, id);
+    if (!matchesDoorPin(pin, stored.pin_hash)) throw new Error("Stored PIN does not match verification hash");
+    return { pin };
+  } catch (error) {
+    console.error("[admin]", JSON.stringify({ operation: "pin.reveal", type: error instanceof Error ? error.constructor.name : "Unknown" }));
+    return { error: "Unable to display the stored PIN. Check the server session secret or regenerate the PIN." };
   }
 }

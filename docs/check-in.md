@@ -9,7 +9,7 @@ Configure these **server-only** environment variables locally and in Vercel:
 - `CHECK_IN_SESSION_SECRET`: independent random signing secret, at least 32 characters. Generate with `openssl rand -hex 32`.
 - `SITE_URL`: existing canonical website URL. Continue using the existing server-only Supabase configuration.
 
-Generate the event’s PIN in `/admin/events/[id]` and share it privately with staff. The database resolves the currently published, released, unended ticketed event. `CHECK_IN_PIN` and `CHECK_IN_EVENT_SLUG` are obsolete and can be removed after migration/deployment. Only salted scrypt hashes are stored; regeneration invalidates sessions.
+Generate the event’s PIN in `/admin/events/[id]` and share it privately with staff. The database resolves the currently published, released, unended ticketed event. `CHECK_IN_PIN` and `CHECK_IN_EVENT_SLUG` are obsolete and can be removed after migration/deployment. Door verification uses salted scrypt hashes. Admin retrieval additionally stores the PIN encrypted with an event-bound key derived from the permanent server session secret; plaintext PINs are never stored. Show PIN does not change door sessions; regeneration invalidates them. Existing hash-only PINs need one regeneration to enable retrieval.
 
 Staff open `/check-in` on their phone, enter the PIN (the eye toggle can reveal/hide it) and allow camera access. Camera access needs HTTPS (localhost is suitable for local development). No app installation is needed. Use rear-camera scanning or the manual ticket-code fallback. Scanning **only validates**. Staff must press **Check In** to admit. **Scan Next** returns to scanning; **Lock Scanner** removes the cookie.
 

@@ -20,7 +20,8 @@ function ticketStatus(order) {
 createServer(async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   if (await mockAdmin(req, res)) return;
-  if (req.url === "/rest/v1/rpc/get_active_door_event") return res.end(JSON.stringify({slug:"browser-door-event",pin_hash:`scrypt$${"a".repeat(32)}$${scryptSync("12345678", "a".repeat(32), 64).toString("hex")}`}));
+  if (req.url === "/rest/v1/rpc/get_active_door_event")
+    return res.end(JSON.stringify({ slug: "browser-door-event", pin_hash: `scrypt$${"a".repeat(32)}$${scryptSync("12345678", "a".repeat(32), 64).toString("hex")}` }));
   if (req.url === "/health") return res.end("{}");
   if (req.url === "/reset" && req.method === "POST") {
     doorCheckedAt = null;
@@ -88,18 +89,24 @@ createServer(async (req, res) => {
     }
     return res.end(JSON.stringify([...intents.values()].find((pi) => req.url.endsWith(pi.id))));
   }
+  if (req.url === "/rest/v1/rpc/check_ticket_reservation") {
+    if (fixture.reservationExpired) return res.end(JSON.stringify("expired"));
+    return res.end(JSON.stringify(fixture.salesClosed || fixture.ticketClosed ? "closed" : "open"));
+  }
   if (["/rest/v1/rpc/validate_door_ticket", "/rest/v1/rpc/check_in_door_ticket"].includes(req.url)) {
     let body = "";
     for await (const chunk of req) body += chunk;
     const args = JSON.parse(body);
-    if (args.p_event_slug !== "browser-door-event" || !["a".repeat(64), "EST-ABCDEF012345"].includes(args.p_credential)) return res.end(JSON.stringify({ status: "invalid", reason: fixture.doorReason ?? "not_found" }));
+    if (args.p_event_slug !== "browser-door-event" || !["a".repeat(64), "EST-ABCDEF012345"].includes(args.p_credential))
+      return res.end(JSON.stringify({ status: "invalid", reason: fixture.doorReason ?? "not_found" }));
     let status = doorCheckedAt ? "already_checked_in" : "valid";
     if (req.url.endsWith("/check_in_door_ticket") && !doorCheckedAt) {
       doorCheckedAt = new Date().toISOString();
       status = "checked_in";
     }
-    return res.end(JSON.stringify({ status, ticket_code: "EST-ABCDEF012345", ticket_type: "General Admission",
-      event_name: "LOCAL ONLY Door Test", timezone: "America/New_York", checked_in_at: doorCheckedAt }));
+    return res.end(
+      JSON.stringify({ status, ticket_code: "EST-ABCDEF012345", ticket_type: "General Admission", event_name: "LOCAL ONLY Door Test", timezone: "America/New_York", checked_in_at: doorCheckedAt }),
+    );
   }
   if (req.url === "/rest/v1/rpc/initialize_ticket_order") {
     let body = "";
@@ -115,8 +122,7 @@ createServer(async (req, res) => {
     let promotionVersion = null;
     if (fixture.ticketPromotion) promotionVersion = "2026-10-26-ticket-gift-card-v1";
     if (fixture.novemberTicket) promotionVersion = "2026-11-09-v1";
-    if (promotionVersion && (p.p_disclaimer_accepted !== true || p.p_displayed_disclaimer_version !== promotionVersion))
-      return res.end(JSON.stringify({ status: "disclaimer_required" }));
+    if (promotionVersion && (p.p_disclaimer_accepted !== true || p.p_displayed_disclaimer_version !== promotionVersion)) return res.end(JSON.stringify({ status: "disclaimer_required" }));
     let o = orders.get(p.p_phone);
     if (o?.status === "paid") return res.end(JSON.stringify({ status: "already_purchased" }));
     if (!o) {
@@ -217,8 +223,8 @@ createServer(async (req, res) => {
     );
   }
   if (req.url === "/rest/v1/rpc/get_ticket_by_token") {
-    let body = "";
-    for await (const chunk of req) body += chunk;
+    let body = req.fixtureBody ?? "";
+    if (!req.fixtureBody) for await (const chunk of req) body += chunk;
     const p = JSON.parse(body);
     const o = [...orders.values()].find((o) => o.status === "paid" && o.ticket_token === p.p_token);
     return res.end(
@@ -317,15 +323,29 @@ createServer(async (req, res) => {
           currency: "usd",
           ticket_type_name: "General Admission",
           disclaimer_version: fixture.ticketPromotion ? "2026-10-26-ticket-gift-card-v1" : null,
-          open: !(fixture.salesClosed || fixture.ticketClosed),
+          open: !(fixture.salesClosed || fixture.ticketClosed || fixture.soldOut),
+          sold_out: !!fixture.soldOut,
           sales_closed: !!(fixture.salesClosed || fixture.ticketClosed),
         });
-      if (fixture.novemberTicket) available = [{
-        ...event, slug: "cuban-night-social-2026-11-09", name: "LOCAL ONLY — November 9 Event", event_date: "2026-11-09",
-        starts_at: "2026-11-10T01:00:00Z", ends_at: "2026-11-10T04:30:00Z",
-        admission_mode: "ticketed", rsvp_open: false, open: true, sales_closed: false,
-        disclaimer_version: "2026-11-09-v1", price_cents: 1000, currency: "usd", ticket_type_name: "General Admission",
-      }];
+      if (fixture.novemberTicket)
+        available = [
+          {
+            ...event,
+            slug: "cuban-night-social-2026-11-09",
+            name: "LOCAL ONLY — November 9 Event",
+            event_date: "2026-11-09",
+            starts_at: "2026-11-10T01:00:00Z",
+            ends_at: "2026-11-10T04:30:00Z",
+            admission_mode: "ticketed",
+            rsvp_open: false,
+            open: true,
+            sales_closed: false,
+            disclaimer_version: "2026-11-09-v1",
+            price_cents: 1000,
+            currency: "usd",
+            ticket_type_name: "General Admission",
+          },
+        ];
       if (noEvents) available = [];
       return res.end(JSON.stringify(available));
     }

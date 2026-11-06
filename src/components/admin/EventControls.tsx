@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { duplicateAdminEvent, generateEventPin } from "@/app/admin/actions";
+import { duplicateAdminEvent, generateEventPin, revealEventPin } from "@/app/admin/actions";
 
 const buttonClass = "rounded border border-navy px-4 py-3 font-semibold disabled:opacity-50 cursor-pointer";
 
@@ -12,7 +12,7 @@ export function DuplicateEventButton({ id }: { id: string }) {
   return (
     <div>
       <button
-        className={buttonClass}
+        className={`${buttonClass} hover:text-accent-gold hover:border-accent-gold`}
         disabled={pending}
         onClick={() =>
           start(async () => {
@@ -36,9 +36,9 @@ export function EventPinControl({ id, configured }: { id: string; configured: bo
   const [error, setError] = useState("");
   const [hasPin, setHasPin] = useState(configured);
   return (
-    <section className="border-border space-y-4 rounded-lg border-2 p-5">
-      <h2 className="font-heading text-3xl">Door PIN</h2>
-      <p>{hasPin ? "A PIN is configured. Regenerating it invalidates existing door sessions." : "Generate a PIN to enable door access for this event."}</p>
+    <fieldset className="border-border space-y-4 rounded-lg border-2 p-5">
+      <legend className="font-heading m-0 px-2 text-3xl">Door PIN</legend>
+      <p>{hasPin ? "PIN already generated. Show it securely or regenerate it to invalidate existing door sessions." : "Generate a PIN to enable door access for this event."}</p>
       <button
         className={buttonClass}
         disabled={pending}
@@ -60,15 +60,28 @@ export function EventPinControl({ id, configured }: { id: string; configured: bo
       </button>
       {pin && visible && (
         <div role="status" className="space-y-3">
-          <p>Save this PIN before leaving or refreshing this page.</p>
+          <p>Share this PIN privately with staff. You can return here and use Show PIN again.</p>
           <code className="block text-3xl font-semibold tracking-widest">{pin}</code>
           <button className="underline" onClick={() => setVisible(false)}>
             Hide PIN
           </button>
         </div>
       )}
-      {pin && !visible && (
-        <button className={`${buttonClass} ml-3`} onClick={() => setVisible(true)}>
+      {hasPin && !visible && (
+        <button
+          className={`${buttonClass} ml-3`}
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              setError("");
+              const result = await revealEventPin(id);
+              if (result.pin) {
+                setPin(result.pin);
+                setVisible(true);
+              } else setError(result.error ?? "Unable to display PIN.");
+            })
+          }
+        >
           Show PIN
         </button>
       )}
@@ -77,6 +90,6 @@ export function EventPinControl({ id, configured }: { id: string; configured: bo
           {error}
         </p>
       )}
-    </section>
+    </fieldset>
   );
 }

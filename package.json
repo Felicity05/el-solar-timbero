@@ -18,7 +18,8 @@
     "test:local:tickets": "node tests/local-ticket.integration.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "test:local:capacity": "node tests/local-capacity.integration.mjs"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "7.0.0",

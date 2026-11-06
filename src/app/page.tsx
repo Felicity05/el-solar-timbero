@@ -46,7 +46,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   }
 
   let content = <EventClosed selectedEventUnavailable={requested !== undefined} />;
-  if (event?.admission_mode === "ticketed" && event.sales_closed) {
+  if (event?.admission_mode === "ticketed" && event.sold_out && !event.sales_closed) {
+    content = <TicketResult kind="sold_out" event={event} />;
+  } else if (event?.admission_mode === "ticketed" && event.sales_not_started) {
+    content = <TicketResult kind="not_started" event={event} />;
+  } else if (event?.admission_mode === "ticketed" && event.sales_closed) {
     content = <TicketResult kind="closed" event={event} />;
   } else if (event?.open && event.admission_mode === "ticketed") {
     content = (
@@ -84,7 +88,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         Skip to content
       </a>
       <SiteHeader ticketed={event?.admission_mode === "ticketed"} />
-      <main id="main" className={!event ? "flex flex-1 items-center justify-center" : undefined}>{content}</main>
+      <main id="main" className={!event ? "flex flex-1 items-center justify-center" : undefined}>
+        {content}
+      </main>
       <SiteFooter />
     </div>
   );

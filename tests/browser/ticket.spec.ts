@@ -348,3 +348,23 @@ for (const url of ["/", "/?event=cuban-night-social-2026-11-09"]) {
     expect(state.intents[0].amount).toBe(1000);
   });
 }
+
+test("sold out event stays visible with no purchase form or promise of door admission", async ({ page, request }) => {
+  await request.post("http://127.0.0.1:54329/ticket-mode");
+  await request.post("http://127.0.0.1:54329/fixture", { data: { soldOut: true } });
+  await page.goto("/?event=browser-ticket-event");
+  await expect(page.getByRole("heading", { name: /Tickets are sold out/i })).toBeVisible();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("You can still come and pay at the door!", { exact: true })).toHaveCount(0);
+});
+
+test("expired reservation clears payment fields and allows retry without confirming the canceled payment", async ({ page, request }) => {
+  await page.goto("/?event=browser-ticket-event");
+  await fillTicket(page);
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  await request.post("http://127.0.0.1:54329/fixture", { data: { reservationExpired: true } });
+  await page.getByRole("button", { name: "Buy Now", exact: true }).click();
+  await expect(page.getByText("Your 15-minute ticket reservation expired. Reload payment to reserve another ticket.", { exact: false })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __confirmCalls?: number }).__confirmCalls ?? 0)).toBe(0);
+  await expect(page.getByRole("button", { name: "Retry loading payment", exact: true })).toBeVisible();
+});

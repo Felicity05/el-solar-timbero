@@ -14,6 +14,10 @@ export async function adminRpc(name: string, args?: Record<string, unknown>) {
 }
 export function adminError(error: unknown) {
   if (error instanceof AdminDatabaseError) {
+    if (error.code === "P2001") return "Choose a future publication time for Scheduled.";
+    if (error.code === "P2002") return "Use Scheduled for a future publication time, or select Published to publish now.";
+    if (error.code === "P2003") return "The ticket limit cannot be below issued tickets and active checkout reservations.";
+    if (error.code === "P2004") return "Activate the ticket type before scheduling or publishing this event.";
     if (error.code === "23P01") return "This publication window overlaps another published ticketed event. Publish after that event ends, or save as a draft.";
     if (error.code === "23505") return "That event slug is already in use. Choose a different slug.";
     if (["22023", "23514", "22007", "22008"].includes(error.code)) return "Check the event dates, timezone, publication time and sales window. Admission mode cannot change after registrations exist.";

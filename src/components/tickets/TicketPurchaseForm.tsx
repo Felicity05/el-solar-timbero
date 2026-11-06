@@ -7,7 +7,7 @@ import { referralSources } from "@/lib/rsvp/rsvp";
 import type { RsvpEvent } from "@/lib/rsvp/rsvp-event";
 import type { TicketSession } from "@/lib/tickets/types";
 import { controlClassName, labelClassName } from "../shared/form-styles";
-import { purchaseCredential } from "./credential";
+import { purchaseCredential, existingCredential } from "./credential";
 import TicketConfirmation from "./TicketConfirmation";
 import TicketResult from "./TicketResult";
 import PaymentProcessingOverlay, { type PaymentStage } from "./PaymentProcessingOverlay";
@@ -46,7 +46,7 @@ type TicketPurchaseFormProps = {
   hero: ReactNode;
   aside: ReactNode;
   initializeAction: (credential: string, data: FormData) => Promise<TicketSession>;
-  checkSalesAction: () => Promise<"open" | "closed" | "unavailable">;
+  checkSalesAction: (credential?: string) => Promise<"open" | "closed" | "unavailable" | "expired" | "sold_out">;
 };
 
 export default function TicketPurchaseForm({ slug, event, priceCents, currency, ticketType, returnUrl, hero, aside, initializeAction, checkSalesAction }: TicketPurchaseFormProps) {
@@ -108,6 +108,7 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
     return () => clearTimeout(timer);
   }, [version, session, slug, initializeAction, event.disclaimer_version]);
 
+  if (session?.status === "sold_out") return <TicketResult kind="sold_out" event={event} />;
   if (session?.status === "closed") {
     return <TicketResult kind="closed" event={event} />;
   }
@@ -288,6 +289,12 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
             </div>
           )}
 
+          {session?.status === "ready" && session.reservationExpiresAt && (
+            <p className="text-muted text-sm">
+              Your ticket is reserved until {new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(new Date(session.reservationExpiresAt))}. Complete
+              payment before then.
+            </p>
+          )}
           {session?.status === "ready" && stripePromise && (
             <Elements stripe={stripePromise} options={{ clientSecret: session.clientSecret, appearance }}>
               <TicketPayment
@@ -298,7 +305,9 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
                   setProgress(received ? "received" : "confirming");
                 }}
                 onProcessing={setProgress}
-                checkSales={checkSalesAction}
+                checkSales={() => checkSalesAction(existingCredential(slug) ?? undefined)}
+                onExpired={() => setSession({ status: "error", message: "Your 15-minute ticket reservation expired. Reload payment to reserve another ticket." })}
+                onSoldOut={() => setSession({ status: "sold_out" })}
                 onClosed={() => setSession({ status: "closed" })}
               />
             </Elements>

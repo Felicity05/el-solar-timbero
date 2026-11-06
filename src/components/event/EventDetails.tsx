@@ -39,6 +39,12 @@ export default function EventDetails({ event, variant = "hero", fullDate = false
   const [streetAddress, ...addressParts] = event.venue_address.split(",");
   const placementClassName = variant === "hero" ? "tablet:flex-wrap tablet:gap-x-0 tablet:gap-y-[13px] tablet:flex-col tablet:items-start" : "justify-center mobile:-mx-[5px]";
 
+  let admissionLabel = "FREE.99";
+  if (event.admission_mode === "ticketed")
+    admissionLabel =
+      event.price_cents === 0
+        ? "Complimentary"
+        : new Intl.NumberFormat("en-US", { style: "currency", currency: event.currency ?? "usd", maximumFractionDigits: 0 }).format((event.price_cents ?? 0) / 100);
   return (
     <div className={`text-navy mobile:mt-4.25 mobile:justify-center mt-5.5 flex items-center text-left ${placementClassName} ${fullDate ? "mobile:flex-wrap mobile:gap-y-4" : ""}`}>
       <div className={`event-date ${itemClassName} border-border mobile:pl-0 tablet:border-none border-r-2 pl-0`}>
@@ -66,15 +72,7 @@ export default function EventDetails({ event, variant = "hero", fullDate = false
               <path d="M7 9h2m-2 6h2m6-6h2m-2 6h2" />
             </g>
           </svg>
-          <p className={`${titleClassName} mobile:whitespace-nowrap`}>
-            {event.admission_mode === "ticketed"
-              ? new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: event.currency ?? "usd",
-                  maximumFractionDigits: 0,
-                }).format((event.price_cents ?? 0) / 100)
-              : "FREE.99"}
-          </p>
+          <p className={`${titleClassName} mobile:whitespace-nowrap`}>{admissionLabel}</p>
         </div>
       )}
       <div className={`event-location ${itemClassName} mobile:pr-0 pr-0 ${variant === "hero" ? "tablet:basis-full tablet:px-0" : ""}`}>

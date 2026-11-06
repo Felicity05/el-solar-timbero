@@ -15,6 +15,9 @@ const eventSchema = z.object({
   venue_address: z.string(),
   open: z.boolean(),
   sales_closed: z.boolean().default(false),
+  sold_out: z.boolean().optional(),
+  sales_not_started: z.boolean().optional(),
+  needs_reservation_cleanup: z.boolean().optional(),
   disclaimer_version: z.string().nullable(),
   admission_mode: z.enum(["rsvp", "ticketed"]).default("rsvp"),
   price_cents: z.number().int().positive().nullable().optional(),
@@ -24,8 +27,8 @@ const eventSchema = z.object({
 export type RsvpEvent = z.infer<typeof eventSchema>;
 
 export async function getAvailableRsvpEvents(): Promise<RsvpEvent[]> {
-  const data = await callRsvpRpc("event.discovery", "get_available_rsvp_events");
-  const parsed = z.array(eventSchema).safeParse(data);
+  let data = await callRsvpRpc("event.discovery", "get_available_rsvp_events");
+  let parsed = z.array(eventSchema).safeParse(data);
   if (!parsed.success)
     throw reportRsvpFailure({
       operation: "event.discovery",
@@ -37,12 +40,19 @@ export async function getAvailableRsvpEvents(): Promise<RsvpEvent[]> {
         code: issue.code,
       })),
     });
+  if (parsed.data.some((event) => event.needs_reservation_cleanup)) {
+    const { cleanupExpiredReservations } = await import("../tickets/reservations");
+    await Promise.all(parsed.data.filter((event) => event.needs_reservation_cleanup).map((event) => cleanupExpiredReservations(event.slug)));
+    data = await callRsvpRpc("event.discovery", "get_available_rsvp_events");
+    parsed = z.array(eventSchema).safeParse(data);
+    if (!parsed.success) throw reportRsvpFailure({ operation: "event.discovery", rpc: "get_available_rsvp_events", stage: "response_validation", code: "INVALID_RESPONSE" });
+  }
   return parsed.data.filter((event) => {
     if (event.admission_mode === "ticketed") {
       // Ticket availability comes from the RPC, independently of RSVP settings.
       // A disclosure version identifies the event's acknowledgment; it is not
       // an event-discovery allowlist tied to the first paid event's date.
-      return (event.open || event.sales_closed) && event.price_cents && event.currency === "usd" && event.ticket_type_name;
+      return (event.open || event.sales_closed || event.sold_out || event.sales_not_started) && event.price_cents && event.currency === "usd" && event.ticket_type_name;
     }
     return event.open && RSVP_OPEN;
   });

@@ -251,3 +251,8 @@ Verified webhook fulfillment now schedules a server-only Gmail ticket email, wit
 ## Ticketed gift-card promotions
 
 Ticketed events can require the supported `2026-10-26-ticket-gift-card-v1` acknowledgment. The ticket form reuses RSVP checkbox styling; the server and transactional RPC enforce explicit acknowledgment and persist the version on the order. No promotion means no checkbox and NULL/NULL order fields. This does not change Stripe, ticket issuance, QR identity or email fulfillment. See [October 26 setup and manual publication steps](event-2026-10-26.md).
+
+
+## Complimentary admission and capacity
+
+Admin-only complimentary issuance uses the same contact/order/ticket uniqueness, token/QR and Gmail delivery, with a zero-dollar `complimentary` order and no Stripe charge. Optional event limits count complimentary/paid admissions and active 15-minute checkout reservations together. Inventory is allocated under the event row lock; expired holds are only released after verified Stripe cancellation. Public checkout remains card-only and webhook-authoritative. See [Admin operation and testing](admin.md#complimentary-tickets-shared-capacity-and-publication-choices) for limits, failure handling, scheduling and deployment.

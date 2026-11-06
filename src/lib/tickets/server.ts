@@ -19,6 +19,7 @@ const pendingSchema = z.object({
   currency: z.literal("usd"),
   payment_intent_id: z.string().nullable(),
   payment_attempt: z.number().int().nonnegative().optional(),
+  reservation_expires_at: z.string().nullable().optional(),
 });
 class TicketRpcError extends Error {
   constructor(
@@ -73,6 +74,12 @@ export async function initializePurchase(
     ...(buyer.disclaimerVersion ? { p_disclaimer_accepted: buyer.giftCardDisclaimerAccepted === true, p_displayed_disclaimer_version: buyer.disclaimerVersion } : {}),
   };
   let data = await ticketRpc("initialize_ticket_order", args);
+  if (data?.status === "capacity_full") {
+    const { cleanupExpiredReservations } = await import("./reservations");
+    await cleanupExpiredReservations(slug);
+    data = await ticketRpc("initialize_ticket_order", args);
+    if (data?.status === "capacity_full") return { status: "sold_out" };
+  }
   if (data?.status === "already_purchased") return { status: "already_purchased" };
   if (data?.status === "closed") return { status: "closed" };
   if (data?.status === "pending_elsewhere")
@@ -87,6 +94,17 @@ export async function initializePurchase(
     };
   let order = pendingSchema.parse(data);
   let intent = await retrieveOrderPayment({ ...order, status: "pending" }, stripe);
+  if (order.reservation_expires_at && Date.parse(order.reservation_expires_at) <= Date.now() && !["succeeded", "processing"].includes(intent.status)) {
+    const { cleanupExpiredReservations } = await import("./reservations");
+    await cleanupExpiredReservations(slug);
+    data = await ticketRpc("initialize_ticket_order", args);
+    if (data?.status === "already_purchased") return { status: "already_purchased" };
+    if (data?.status === "capacity_full") return { status: "sold_out" };
+    if (data?.status === "closed") return { status: "closed" };
+    order = pendingSchema.parse(data);
+    if (order.reservation_expires_at && Date.parse(order.reservation_expires_at) <= Date.now()) throw new Error("Expired payment could not be safely released");
+    intent = await retrieveOrderPayment({ ...order, status: "pending" }, stripe);
+  }
   const owned = order.status === "pending";
   const recoveryAvailable = order.payment_attempt !== undefined;
   if (intent.status === "succeeded") return owned ? { status: "processing", paymentReceived: true } : { status: "already_purchased" };
@@ -145,6 +163,7 @@ export async function initializePurchase(
     clientSecret: intent.client_secret,
     amountCents: order.amount_cents,
     currency: order.currency,
+    reservationExpiresAt: order.reservation_expires_at,
   };
 }
 const purchaseSchema = z.object({

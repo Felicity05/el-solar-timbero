@@ -9,11 +9,13 @@ type PaymentProps = {
   returnUrl: string;
   onPaid: (received: boolean) => void;
   onProcessing: (stage: PaymentStage | null) => void;
-  checkSales: () => Promise<"open" | "closed" | "unavailable">;
+  checkSales: () => Promise<"open" | "closed" | "unavailable" | "expired" | "sold_out">;
   onClosed: () => void;
+  onExpired: () => void;
+  onSoldOut: () => void;
 };
 
-export function TicketPayment({ slug, returnUrl, onPaid, onProcessing, checkSales, onClosed }: PaymentProps) {
+export function TicketPayment({ slug, returnUrl, onPaid, onProcessing, checkSales, onClosed, onExpired, onSoldOut }: PaymentProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [busy, setBusy] = useState(false);
@@ -37,6 +39,14 @@ export function TicketPayment({ slug, returnUrl, onPaid, onProcessing, checkSale
             return;
           }
           const sales = await checkSales();
+          if (sales === "expired") {
+            onExpired();
+            return;
+          }
+          if (sales === "sold_out") {
+            onSoldOut();
+            return;
+          }
           if (sales === "closed") {
             onClosed();
             return;

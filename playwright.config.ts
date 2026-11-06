@@ -33,6 +33,8 @@ export default defineConfig({
         ADMIN_USER_ID: "11111111-1111-4111-8111-111111111111",
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_fixture",
         SUPABASE_URL: "http://127.0.0.1:54329",
+        GMAIL_USER: "fixture-sender@example.com",
+        GMAIL_APP_PASSWORD: "fixture-only",
         STRIPE_SECRET_KEY: "sk_test_fixture",
         STRIPE_WEBHOOK_SECRET: "whsec_fixture",
         STRIPE_LIVE_MODE: "false",
