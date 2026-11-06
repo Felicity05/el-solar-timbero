@@ -1,5 +1,5 @@
 "use client";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { type Appearance, loadStripe } from "@stripe/stripe-js";
 import { validateTicketAttendee, ticketGiftCardDisclaimer, ticketGiftCardNote } from "@/lib/tickets/promotion";
@@ -7,7 +7,8 @@ import { referralSources } from "@/lib/rsvp/rsvp";
 import type { RsvpEvent } from "@/lib/rsvp/rsvp-event";
 import type { TicketSession } from "@/lib/tickets/types";
 import { controlClassName, labelClassName } from "../shared/form-styles";
-import { purchaseCredential } from "./credential";
+import { purchaseCredential, existingCredential } from "./credential";
+import ReservationCountdown from "./ReservationCountdown";
 import TicketConfirmation from "./TicketConfirmation";
 import TicketResult from "./TicketResult";
 import PaymentProcessingOverlay, { type PaymentStage } from "./PaymentProcessingOverlay";
@@ -46,16 +47,23 @@ type TicketPurchaseFormProps = {
   hero: ReactNode;
   aside: ReactNode;
   initializeAction: (credential: string, data: FormData) => Promise<TicketSession>;
-  checkSalesAction: () => Promise<"open" | "closed" | "unavailable">;
+  cancelAction: (credential: string) => Promise<"canceled" | "paid" | "processing" | "error">;
+  checkSalesAction: (credential?: string) => Promise<"open" | "closed" | "unavailable" | "expired" | "sold_out">;
 };
 
-export default function TicketPurchaseForm({ slug, event, priceCents, currency, ticketType, returnUrl, hero, aside, initializeAction, checkSalesAction }: TicketPurchaseFormProps) {
+const buttonClass = "rounded-md border border-navy px-4 py-3 font-semibold disabled:opacity-50 cursor-pointer hover:bg-navy hover:text-white";
+
+export default function TicketPurchaseForm({ slug, event, priceCents, currency, ticketType, returnUrl, hero, aside, initializeAction, checkSalesAction, cancelAction }: TicketPurchaseFormProps) {
   const form = useRef<HTMLFormElement>(null);
   const router = useRouter();
   const [progress, setProgress] = useState<PaymentStage | null>(null);
   const initializing = useRef(false);
   const attemptedData = useRef<FormData | null>(null);
   const [session, setSession] = useState<TicketSession | null>(null);
+  const [expired, setExpired] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+  const expire = useCallback(() => setExpired(true), []);
   const [starting, setStarting] = useState(false);
   const [version, setVersion] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -81,7 +89,7 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
   }, [ready, purchase?.ticket_url, router]);
 
   useEffect(() => {
-    if (!version || session || initializing.current || !stripePromise) return;
+    if (!version || session || expired || initializing.current || !stripePromise) return;
 
     const timer = setTimeout(async () => {
       if (!form.current || initializing.current) return;
@@ -106,14 +114,43 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [version, session, slug, initializeAction, event.disclaimer_version]);
+  }, [version, session, expired, slug, initializeAction, event.disclaimer_version]);
 
+  if (session?.status === "sold_out") return <TicketResult kind="sold_out" event={event} />;
   if (session?.status === "closed") {
     return <TicketResult kind="closed" event={event} />;
   }
   if (session?.status === "already_purchased") return <TicketConfirmation event={event} slug={slug} alreadyPurchased />;
 
-  const locked = starting || waiting || progress !== null;
+  const locked = starting || cancelling || waiting || progress !== null;
+  async function cancelPurchase() {
+    if (cancelling) return;
+    setCancelling(true);
+    setCancelError("");
+    try {
+      const credential = existingCredential(slug);
+      const result = credential ? await cancelAction(credential) : "error";
+      if (result === "paid" || result === "processing") {
+        setExpired(false);
+        setSession({ status: "processing", paymentReceived: result === "paid" });
+        return;
+      }
+      if (result !== "canceled") {
+        setCancelError("We couldn’t confirm cancellation. Please try again. Don’t start another payment yet.");
+        return;
+      }
+      form.current?.reset();
+      attemptedData.current = null;
+      setFieldErrors({});
+      setVersion(0);
+      setSession(null);
+      setExpired(false);
+    } catch {
+      setCancelError("We couldn’t confirm cancellation. Please try again. Don’t start another payment yet.");
+    } finally {
+      setCancelling(false);
+    }
+  }
   const amount = session?.status === "ready" ? session.amountCents : priceCents;
 
   let stage = progress ?? "confirming";
@@ -130,6 +167,55 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
   return (
     <div>
       {showProcessingOverlay && <PaymentProcessingOverlay stage={stage} stalled={finished} onRetryAction={retry} />}
+      {expired && (
+        <dialog
+          ref={(node) => {
+            if (node && !node.open) node.showModal();
+          }}
+          onCancel={(e) => {
+            e.preventDefault();
+            void cancelPurchase();
+          }}
+          aria-labelledby="reservation-expired-title"
+          className="bg-surface text-navy border-primary fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg border-2 p-7 text-center shadow-xl"
+        >
+          <h2 id="reservation-expired-title" className="font-heading text-3xl uppercase">
+            Timer expired
+          </h2>
+          <button
+            type="button"
+            aria-label="Close popup"
+            className="hover:text-primary absolute top-3 right-4 cursor-pointer text-2xl leading-none"
+            disabled={cancelling}
+            onClick={() => void cancelPurchase()}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+          <p className="my-5 text-lg">Your timer expired. Would you like to try to reserve your ticket again?</p>
+          <div className="flex justify-center gap-4">
+            <button
+              type="button"
+              className={buttonClass}
+              disabled={cancelling}
+              onClick={() => {
+                setSession(null);
+                setExpired(false);
+                setVersion((v) => v + 1);
+              }}
+            >
+              Try again
+            </button>
+            <button type="button" className={buttonClass} disabled={cancelling} onClick={() => void cancelPurchase()}>
+              {cancelling ? "Cancelling…" : "Cancel"}
+            </button>
+          </div>
+          {cancelError && (
+            <p role="alert" className="text-primary mt-4">
+              {cancelError}
+            </p>
+          )}
+        </dialog>
+      )}
       {hero}
       <div className="narrow:px-4 tablet:grid-cols-[minmax(0,1fr)_220px] tablet:gap-7.5 tablet:px-7.5 tablet:py-10.5 mobile:block mobile:px-5 mobile:pt-5 mobile:pb-7.5 relative grid grid-cols-[minmax(0,1fr)_310px] gap-13.5 px-16 pt-8 pb-15">
         <section id="ticket-purchase" className="tablet:px-3 mobile:px-1 mobile:pb-5.75 min-w-0 scroll-mt-6 px-4 pb-6.5" aria-labelledby="ticket-title">
@@ -288,8 +374,9 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
             </div>
           )}
 
-          {session?.status === "ready" && stripePromise && (
-            <Elements stripe={stripePromise} options={{ clientSecret: session.clientSecret, appearance }}>
+          {session?.status === "ready" && session.reservationExpiresAt && <ReservationCountdown expiresAt={session.reservationExpiresAt} active={!locked && !expired} onExpired={expire} />}
+          {session?.status === "ready" && !expired && stripePromise && (
+            <Elements key={session.clientSecret} stripe={stripePromise} options={{ clientSecret: session.clientSecret, appearance }}>
               <TicketPayment
                 slug={slug}
                 returnUrl={returnUrl}
@@ -298,14 +385,17 @@ export default function TicketPurchaseForm({ slug, event, priceCents, currency, 
                   setProgress(received ? "received" : "confirming");
                 }}
                 onProcessing={setProgress}
-                checkSales={checkSalesAction}
+                checkSales={() => checkSalesAction(existingCredential(slug) ?? undefined)}
+                onExpired={expire}
+                onSoldOut={() => setSession({ status: "sold_out" })}
                 onClosed={() => setSession({ status: "closed" })}
               />
             </Elements>
           )}
 
           <p className="text-muted mt-5 text-[13px]">
-            Your payment details are securely handled by Stripe. We collect your attendee details to manage your ticket. For help, contact @el_solar_timbero.
+            Your payment details are securely handled by Stripe. We collect your attendee details to manage your ticket. For help, contact <span className="font-semibold">@el_solar_timbero</span> on
+            WhatsApp or Instagram.
           </p>
         </section>
         {aside}

@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // SMTP uses Node networking; keep Nodemailer on the native server runtime.
+  serverExternalPackages: ["nodemailer"],
   async headers() {
     return [
       { source: "/admin/:path*", headers: [

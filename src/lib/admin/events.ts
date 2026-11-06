@@ -17,7 +17,7 @@ export const adminEventSchema = z
     ends_at_local: localDateTime,
     publish_at_local: localDateTime,
     timezone: z.string().trim().min(1).max(100),
-    status: z.enum(["draft", "published", "cancelled", "completed"]),
+    status: z.enum(["draft", "scheduled", "published", "cancelled", "completed"]),
     admission_mode: z.enum(["rsvp", "ticketed"]),
     rsvp_open: z.boolean(),
     ticket_sales_open: z.boolean(),
@@ -26,12 +26,13 @@ export const adminEventSchema = z
     ticket_description: z.string().trim().max(2000),
     price_cents: z.number().int().positive().max(100000000),
     ticket_active: z.boolean(),
+    ticket_capacity: z.number().int().positive().max(1000000).nullable(),
     sales_start_local: z.union([localDateTime, z.literal("")]),
     sales_end_local: z.union([localDateTime, z.literal("")]),
   })
   .superRefine((event, ctx) => {
     if (event.admission_mode === "ticketed" && !event.ticket_name) ctx.addIssue({ code: "custom", path: ["ticket_name"], message: "Enter a ticket type name." });
-    if (event.rsvp_open && (event.status !== "published" || event.admission_mode !== "rsvp"))
+    if (event.rsvp_open && (!["published", "scheduled"].includes(event.status) || event.admission_mode !== "rsvp"))
       ctx.addIssue({ code: "custom", path: ["rsvp_open"], message: "RSVP can open only for a published RSVP event." });
   });
 export function priceCents(value: string) {
@@ -70,13 +71,16 @@ export function parseAdminEvent(data: FormData) {
     if (end <= start) endDay.setUTCDate(endDay.getUTCDate() + 1);
     fields.ends_at_local = `${Number.isNaN(endDay.getTime()) ? "" : endDay.toISOString().slice(0, 10)}T${end}`;
   }
-  return adminEventSchema.safeParse({
-    ...fields,
-    rsvp_open: data.get("rsvp_open") === "on",
-    ticket_sales_open: data.get("ticket_sales_open") === "on",
-    ticket_active: data.get("ticket_active") === "on",
-    price_cents: fields.admission_mode === "ticketed" ? priceCents(String(data.get("price") ?? "")) : 1000,
-  });
+  return adminEventSchema
+    .transform((event) => ({ ...event, publication_mode: event.status, status: event.status === "scheduled" ? ("published" as const) : event.status }))
+    .safeParse({
+      ...fields,
+      ticket_capacity: data.get("ticket_capacity") ? Number(data.get("ticket_capacity")) : null,
+      rsvp_open: data.get("rsvp_open") === "on",
+      ticket_sales_open: data.get("ticket_sales_open") === "on",
+      ticket_active: data.get("ticket_active") === "on",
+      price_cents: fields.admission_mode === "ticketed" ? priceCents(String(data.get("price") ?? "")) : 1000,
+    });
 }
 export type AdminEvent = {
   display_status?: string;
@@ -97,12 +101,23 @@ export type AdminEvent = {
   publish_at: string;
   gift_card_disclaimer_version: string | null;
   has_check_in_pin: boolean;
+  ticket_capacity?: number | null;
 };
 export type AdminTicketType = { name: string; description: string | null; price_cents: number; currency: string; active: boolean; sales_start_at: string | null; sales_end_at: string | null };
 export type AdminDetail = {
   event: AdminEvent;
   ticket_type: AdminTicketType | null;
-  metrics: { tickets_sold: number; gross_revenue_cents: number; checked_in: number; not_checked_in: number; rsvps: number };
+  metrics: {
+    tickets_issued?: number;
+    complimentary_tickets?: number;
+    pending_reservations?: number;
+    remaining_capacity?: number | null;
+    tickets_sold: number;
+    gross_revenue_cents: number;
+    checked_in: number;
+    not_checked_in: number;
+    rsvps: number;
+  };
 };
 export function localInput(value: string | null, timezone: string) {
   if (!value) return "";
@@ -143,3 +158,20 @@ export function groupAdminEvents<T extends Pick<AdminEvent, "id" | "event_date" 
   past.sort((a, b) => byDate(b, a));
   return { upcoming, past };
 }
+
+export function adminPublicationStatus(event: Pick<AdminEvent, "status" | "publish_at"> | undefined, now: string) {
+  if (!event) return "draft";
+  return event.status === "published" && Date.parse(event.publish_at) > Date.parse(now) ? "scheduled" : event.status;
+}
+
+export type ComplimentaryRecipient = {
+  name: string;
+  email: string;
+  phone: string;
+  ticket_code: string;
+  status: string;
+  issued_at: string;
+  email_sent_at: string | null;
+  email_attempted_at: string | null;
+  checked_in_at: string | null;
+};

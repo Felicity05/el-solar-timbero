@@ -13,7 +13,12 @@ function siteOrigin() {
 export function ticketReturnUrl() {
   return `${siteOrigin()}/ticket/return`;
 }
-export function ticketUrl(token: string) {
+export function ticketPath(token: string) {
   if (!/^[a-f0-9]{64}$/.test(token)) throw new Error("Invalid ticket credential");
-  return `${siteOrigin()}/tickets/${token}`;
+  return `/tickets/${token}`;
+}
+
+export function ticketUrl(token: string) {
+  const path = ticketPath(token);
+  return `${siteOrigin()}${path}`;
 }

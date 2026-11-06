@@ -2,32 +2,39 @@
 import { useActionState, useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { saveAdminEvent } from "../../app/admin/actions";
-import { localInput, generatedSlugForEvent, type AdminDetail, type AdminFormOptions } from "../../lib/admin/events";
+import { localInput, generatedSlugForEvent, adminPublicationStatus, type AdminDetail, type AdminFormOptions } from "../../lib/admin/events";
 import { controlClassName, labelClassName } from "../shared/form-styles";
 const subscribeTimezone = () => () => {};
 const browserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const serverTimezone = () => "UTC";
+
 export default function EventForm({ detail, now, options }: { detail?: AdminDetail; now: string; options: AdminFormOptions }) {
   const event = detail?.event,
     ticket = detail?.ticket_type;
   const [mode, setMode] = useState(event?.admission_mode ?? "ticketed");
   const [state, action, pending] = useActionState(saveAdminEvent.bind(null, event?.id ?? null), {});
   const router = useRouter();
+
   useEffect(() => {
     if (state.eventId) {
       router.push(`/admin/events/${state.eventId}`);
       router.refresh();
     }
   }, [state.eventId, router]);
+
   const localTimezone = useSyncExternalStore(subscribeTimezone, browserTimezone, serverTimezone);
   const [chosenTimezone, setTimezone] = useState<string | null>(null);
   const timezone = chosenTimezone ?? event?.timezone ?? localTimezone;
   const [name, setName] = useState(event?.name ?? "");
   const [chosenDate, setDate] = useState<string | null>(null);
   const date = chosenDate ?? event?.event_date ?? localInput(now, timezone).slice(0, 10);
+  const [status, setStatus] = useState(adminPublicationStatus(event, now));
+  const [publishAt, setPublishAt] = useState<string | null>(null);
+  const publication = publishAt ?? (event ? localInput(event.publish_at, timezone) : localInput(now, timezone));
   const zones = [...new Set([...(options.timezones ?? []), timezone])].sort();
   const disclaimers = [...new Set([...options.disclaimer_versions, ...(event?.gift_card_disclaimer_version ? [event.gift_card_disclaimer_version] : [])])].sort();
   const ticketNames = [...new Set(["General Admission", ...options.ticket_names, ...(ticket?.name ? [ticket.name] : [])])].sort();
+
   function field(name: string, label: string, value = "", options: { type?: string; required?: boolean } = {}) {
     const { type = "text", required = false } = options;
     return (
@@ -37,6 +44,7 @@ export default function EventForm({ detail, now, options }: { detail?: AdminDeta
       </label>
     );
   }
+
   return (
     <form action={action} onReset={(e) => e.preventDefault()} className="space-y-5">
       {state.error && (
@@ -89,14 +97,27 @@ export default function EventForm({ detail, now, options }: { detail?: AdminDeta
         </label>
         <label className={labelClassName}>
           Status
-          <select name="status" defaultValue={event?.status ?? "draft"} className={controlClassName}>
+          <select
+            name="status"
+            value={status}
+            onChange={(e) => {
+              const next = e.target.value as typeof status;
+              setStatus(next);
+              if (next === "published") setPublishAt(localInput(new Date().toISOString(), timezone));
+            }}
+            className={controlClassName}
+          >
             <option value="draft">Draft</option>
-            <option value="published">Published / Scheduled</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="published">Published</option>
             <option value="cancelled">Cancelled</option>
             <option value="completed">Completed</option>
           </select>
         </label>
-        {field("publish_at_local", "Publish at (event timezone)", event ? localInput(event.publish_at, timezone) : localInput(now, timezone), { type: "datetime-local", required: true })}
+        <label className={labelClassName}>
+          Publish at (event timezone)
+          <input name="publish_at_local" type="datetime-local" value={publication} onChange={(e) => setPublishAt(e.target.value)} required className={controlClassName} />
+        </label>
         <label className={labelClassName}>
           Gift-card disclaimer
           <select name="gift_card_disclaimer_version" defaultValue={event?.gift_card_disclaimer_version ?? ""} className={controlClassName}>
@@ -110,16 +131,24 @@ export default function EventForm({ detail, now, options }: { detail?: AdminDeta
         </label>
       </div>
       <p className="text-sm">
-        Published events remain hidden until their publication time. Ticketed publication windows cannot overlap. Leave the disclaimer version empty for no promotion; a version uses the existing
-        Guantanamera promotion wording.
+        Scheduled events automatically become public at their publication time. Published means the event is public now. Ticketed publication windows cannot overlap. Leave the disclaimer version empty
+        for no promotion; a version uses the existing Guantanamera promotion wording.
       </p>
       {mode === "rsvp" ? (
         <label className="block">
-          <input type="checkbox" name="rsvp_open" defaultChecked={event?.rsvp_open ?? false} /> RSVP open (requires Published status)
+          <input type="checkbox" name="rsvp_open" defaultChecked={event?.rsvp_open ?? false} /> RSVP open (requires Scheduled or Published status)
         </label>
       ) : (
-        <fieldset className="border-border space-y-5 rounded-lg border p-5">
-          <legend className="font-heading text-3xl">Ticket configuration</legend>
+        <fieldset className="border-border space-y-5 rounded-lg border-2 p-5">
+          <legend className="font-heading m-0 px-2 text-3xl">Ticket configuration</legend>
+          <label className={labelClassName}>
+            Ticket limit (paid + complimentary)
+            <input name="ticket_capacity" type="number" min="1" max="1000000" step="1" defaultValue={event?.ticket_capacity ?? ""} className={controlClassName} />
+          </label>
+          <p className="text-sm">
+            Leave blank for unlimited tickets. Paid and complimentary tickets share this limit. Unpaid checkouts reserve a place for 5 minutes; a place is released only after Stripe cancellation is
+            confirmed.
+          </p>
           <div className="grid gap-5 md:grid-cols-2">
             <label className={labelClassName}>
               Ticket type

@@ -52,8 +52,10 @@ test("ticket URL uses configured origin, validates tokens and accepts local HTTP
       "-e",
       `
     import assert from 'node:assert/strict';
-    import { ticketUrl } from './src/lib/tickets/config.ts';
+    import { ticketUrl, ticketPath } from './src/lib/tickets/config.ts';
     const token='a'.repeat(64);
+    delete process.env.SITE_URL; assert.equal(ticketPath(token),'/tickets/'+token);
+    process.env.SITE_URL='https://different-origin.example'; assert.equal(ticketPath(token),'/tickets/'+token);
     for(const site of ['https://elsolartimbero.com','http://localhost:3000']) {
       process.env.SITE_URL=site;assert.equal(ticketUrl(token),site+'/tickets/'+token);
     }

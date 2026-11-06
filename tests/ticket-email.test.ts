@@ -36,11 +36,15 @@ test("server email embeds the existing QR credential once; Gmail failures never 
     const transport=nodemailer.createTransport({streamTransport:true,buffer:true});
     const mime=await transport.sendMail(message);
     assert.match(mime.message.toString(),/Content-ID: <ticket-qr@elsolartimbero>/);
+    const gift=await ticketEmailMessage({...ticket,amount_cents:0},'sender@example.com');
+    assert.ok(gift.text.includes('Your complimentary ticket is confirmed.'));
+    assert.ok(gift.text.includes('Complimentary'));assert.ok(!gift.text.includes('Your ticket purchase is confirmed.'));
+    assert.deepEqual(gift.attachments[0].content,message.attachments[0].content,'same ticket token produces the same QR');
     let claimed=false,sent=false,emails=0,fail=false;const logs=[];
     console.error=(...args)=>logs.push(args.join(' '));
     global.fetch=async(input,init)=>{
       const name=String(input).split('/').at(-1);
-      if(name==='claim_ticket_email') {if(claimed)return Response.json(null);claimed=true;return Response.json(ticket);}
+      if(name==='claim_ticket_email'||name==='claim_complimentary_ticket_email') {if(claimed)return Response.json(null);claimed=true;return Response.json(ticket);}
       if(name==='mark_ticket_email_sent') {sent=true;return Response.json(true);}
       throw new Error('Unexpected database write');
     };
@@ -53,6 +57,10 @@ test("server email embeds the existing QR credential once; Gmail failures never 
     await deliverTicketEmail('order2','intent2',sender);assert.equal(emails,2);
     assert.ok(logs.some(log=>log.includes('email.send')));
     assert.equal(logs.join('').includes('private recipient secret'),false);
+    claimed=false;sent=false;fail=false;
+    const beforeGift=emails;assert.equal(await deliverTicketEmail('giftorder',null,sender),'sent');
+    assert.equal(sent,true);await deliverTicketEmail('giftorder',null,sender);assert.equal(emails,beforeGift+1);
+    claimed=false;sent=false;fail=true;assert.equal(await deliverTicketEmail('failedgift',null,sender),'unconfirmed');assert.equal(sent,false);
     delete process.env.GMAIL_USER;delete process.env.GMAIL_APP_PASSWORD;
     claimed=false;await deliverTicketEmail('order3','intent3');assert.equal(claimed,false);
   `,

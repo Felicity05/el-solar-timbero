@@ -8,7 +8,7 @@ import EventResultCard from "@/components/event/EventResultCard";
 import TicketCard from "./TicketCard";
 
 type TicketResultProps = {
-  kind: "success" | "duplicate" | "closed" | "unavailable";
+  kind: "success" | "duplicate" | "closed" | "sold_out" | "not_started" | "unavailable";
   ticket?: TicketDisplay;
   event?: RsvpEvent;
   message?: string;
@@ -50,6 +50,26 @@ export default function TicketResult({ kind, ticket, event, message }: TicketRes
     );
     subtitle = "You can still come and pay at the door!";
     description = "See you tonight at El Solar!";
+  } else if (kind === "not_started") {
+    title = (
+      <>
+        <span className="print-ink-text text-navy">Ticket sales</span>
+        <br />
+        <span className="print-ink-text text-primary">open soon</span>
+      </>
+    );
+    subtitle = "This event is published. Tickets are not on sale yet.";
+    description = "Please check back when online ticket sales open.";
+  } else if (kind === "sold_out") {
+    title = (
+      <>
+        <span className="print-ink-text text-navy">Tickets are</span>
+        <br />
+        <span className="print-ink-text text-primary">sold out</span>
+      </>
+    );
+    subtitle = "All available tickets are currently issued or reserved.";
+    description = "Please check back in case a checkout reservation expires.";
   } else if (kind === "unavailable") {
     title = (
       <>
@@ -65,7 +85,7 @@ export default function TicketResult({ kind, ticket, event, message }: TicketRes
   return (
     <EventResultLayout title={title} subtitle={subtitle} description={<p className="mobile:text-[16px] mx-auto max-w-115 text-[18px] leading-[1.4]">{description}</p>}>
       {ticket && <TicketCard ticket={ticket} />}
-      {!ticket && event && <EventResultCard name={event.name} event={event} showAdmission={kind !== "closed"} />}
+      {!ticket && event && <EventResultCard name={event.name} event={event} showAdmission={kind !== "closed" && kind !== "sold_out"} />}
       {kind !== "closed" && (
         <Link
           className="print-brush font-heading text-surface mobile:min-w-60 mobile:text-[25px] mt-6.75 inline-flex min-h-15 min-w-67.5 items-center justify-center px-6 pt-3.25 pb-3.75 text-[30px] uppercase"

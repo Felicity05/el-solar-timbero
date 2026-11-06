@@ -1,6 +1,6 @@
 import { ticketReturnUrl } from "@/lib/tickets/config";
 import TicketResult from "@/components/tickets/TicketResult";
-import { initializeTicket, checkTicketSales } from "./ticket-actions";
+import { initializeTicket, checkTicketSales, cancelTicketCheckout } from "./ticket-actions";
 import TicketPurchaseForm from "@/components/tickets/TicketPurchaseForm";
 import TicketCta from "@/components/tickets/TicketCta";
 import BrandPanel from "@/components/event/BrandPanel";
@@ -46,7 +46,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   }
 
   let content = <EventClosed selectedEventUnavailable={requested !== undefined} />;
-  if (event?.admission_mode === "ticketed" && event.sales_closed) {
+  if (event?.admission_mode === "ticketed" && event.sold_out && !event.sales_closed) {
+    content = <TicketResult kind="sold_out" event={event} />;
+  } else if (event?.admission_mode === "ticketed" && event.sales_not_started) {
+    content = <TicketResult kind="not_started" event={event} />;
+  } else if (event?.admission_mode === "ticketed" && event.sales_closed) {
     content = <TicketResult kind="closed" event={event} />;
   } else if (event?.open && event.admission_mode === "ticketed") {
     content = (
@@ -55,6 +59,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         slug={event.slug}
         event={event}
         initializeAction={initializeTicket.bind(null, event.slug)}
+        cancelAction={cancelTicketCheckout.bind(null, event.slug)}
         checkSalesAction={checkTicketSales.bind(null, event.slug)}
         priceCents={event.price_cents!}
         currency={event.currency!}
@@ -83,8 +88,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <a href="#main" className="bg-surface absolute -top-25 left-4 z-30 px-5 py-3">
         Skip to content
       </a>
-      <SiteHeader ticketed={event?.admission_mode === "ticketed"} />
-      <main id="main" className={!event ? "flex flex-1 items-center justify-center" : undefined}>{content}</main>
+      <SiteHeader showEventCta ticketed={event?.admission_mode === "ticketed"} />
+      <main id="main" className={!event ? "flex flex-1 items-center justify-center" : undefined}>
+        {content}
+      </main>
       <SiteFooter />
     </div>
   );

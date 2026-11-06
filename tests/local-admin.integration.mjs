@@ -44,7 +44,7 @@ try {
  select public.process_ticket_payment('evt_adminpreservation','payment_intent.succeeded','${order.order_id}','${order.event_id}','${order.ticket_type_id}','pi_adminpreservation',1000,'usd','succeeded',repeat('a',64),'EST-ABCDEF000001');`);
   const snapshot = () =>
     sql(
-      `select jsonb_build_object('orders',(select jsonb_agg(to_jsonb(o)) from public.orders o),'tickets',(select jsonb_agg(to_jsonb(t)) from public.tickets t),'contacts',(select jsonb_agg(to_jsonb(c)) from public.contacts c),'rsvps',(select jsonb_agg(to_jsonb(r)) from public.rsvps r))::text`,
+      `select jsonb_build_object('orders',(select jsonb_agg(to_jsonb(o)-array['order_kind','complimentary_issued_by','reservation_expires_at','reservation_released_at']) from public.orders o),'tickets',(select jsonb_agg(to_jsonb(t)) from public.tickets t),'contacts',(select jsonb_agg(to_jsonb(c)) from public.contacts c),'rsvps',(select jsonb_agg(to_jsonb(r)) from public.rsvps r))::text`,
     );
   const before = await snapshot();
   await input(

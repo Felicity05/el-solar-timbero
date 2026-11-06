@@ -1,3 +1,5 @@
+> Complimentary tickets: verified admin issuance can now send this same ticket email after its separate committed zero-dollar grant. See [Admin complimentary tickets](admin.md#complimentary-tickets-shared-capacity-and-publication-choices). Public paid tickets still require verified Stripe webhook fulfillment.
+
 # Ticket email delivery
 
 This adds Gmail delivery to the existing paid-ticket webhook. RSVP, PaymentIntent creation, fulfillment, ticket identity, customer components and styling are unchanged. The existing upcoming-events navigation was moved verbatim into `src/components/event/UpcomingEvents.tsx` (same classes, date formatting, event links, selected-event indication, and multiple-events guard); it is intentionally not imported/rendered anywhere. Event discovery and explicit `?event=` selection remain available.

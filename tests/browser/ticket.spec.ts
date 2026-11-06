@@ -104,10 +104,17 @@ test("ticket CTA stays on page; styled $10 form initializes once and embeds Paym
     });
     expect(response.status()).toBe(200);
   }
+  await expect.poll(async () => {
+    const emailState = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+    return emailState.orders[0]?.email_sent;
+  }).toBe(true);
+  const emailState = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+  expect(emailState.orders[0].email_claim_count).toBe(1);
   await expect(page.locator('[aria-current="step"]')).toContainText("Ticket ready");
   await captureState(page, info, "ticket-ready-overlay");
   releaseNavigation();
   await expect(page.getByRole("heading", { name: "You're in!", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get Ticket", exact: true })).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText(/^EST-[A-F0-9]{12}$/)).toBeVisible();
   await expect(page.getByText("Save or screenshot your ticket.")).toBeVisible();
@@ -115,6 +122,12 @@ test("ticket CTA stays on page; styled $10 form initializes once and embeds Paym
   await expect(page.locator(".event-date")).toHaveCount(1);
   await expect(page.locator(".event-date time")).toHaveAttribute("datetime", "2026-12-30");
   await expect(page.locator(".event-location").first()).toHaveText("$10");
+  const confirmedTicketUrl = page.url();
+  await page.goto(`${confirmedTicketUrl}?status=duplicate`);
+  await expect(page.getByRole("heading", { name: "You already have a ticket!", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get Ticket", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "Ticket QR code", exact: true })).toHaveCount(1);
+  await page.goto(confirmedTicketUrl);
   await captureState(page, info, "ticket-success");
   const ticketLink = page.getByRole("link", { name: "Open your ticket", exact: true });
   await expect(ticketLink).toHaveAttribute("href", /\/tickets\/[a-f0-9]{64}\?view=card$/);
@@ -226,6 +239,7 @@ test("already purchased without browser credential shows event details but no ti
   await fillTicket(page);
   await expect(page.getByRole("heading", { name: "You already have a ticket!", exact: true })).toBeVisible();
   await expect(page.getByText(/use your saved ticket link or contact @el_solar_timbero/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get Ticket", exact: true })).toHaveCount(0);
   await expect(page.locator(".event-date")).toHaveCount(1);
   await expect(page.locator(".event-date time")).toHaveAttribute("datetime", "2026-12-30");
   await expect(page.locator(".event-location").first()).toHaveText("$10");
@@ -348,3 +362,63 @@ for (const url of ["/", "/?event=cuban-night-social-2026-11-09"]) {
     expect(state.intents[0].amount).toBe(1000);
   });
 }
+
+test("sold out event stays visible with no purchase form or promise of door admission", async ({ page, request }) => {
+  await request.post("http://127.0.0.1:54329/ticket-mode");
+  await request.post("http://127.0.0.1:54329/fixture", { data: { soldOut: true } });
+  await page.goto("/?event=browser-ticket-event");
+  await expect(page.getByRole("heading", { name: /Tickets are sold out/i })).toBeVisible();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("You can still come and pay at the door!", { exact: true })).toHaveCount(0);
+});
+
+test("expired reservation clears payment fields and allows retry without confirming the canceled payment", async ({ page, request }) => {
+  await page.goto("/?event=browser-ticket-event");
+  await fillTicket(page);
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  await request.post("http://127.0.0.1:54329/fixture", { data: { reservationExpired: true } });
+  await page.getByRole("button", { name: "Buy Now", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Timer expired" })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __confirmCalls?: number }).__confirmCalls ?? 0)).toBe(0);
+  await expect(page.getByRole("button", { name: "Try again", exact: true })).toBeVisible();
+});
+
+test("countdown expiry preserves attendee details, resets card fields on retry and supports cancel", async ({ page, request }) => {
+  await request.post("http://127.0.0.1:54329/fixture", { data: { reservationMs: 300000 } });
+  await page.goto("/?event=browser-ticket-event");
+  await fillTicket(page);
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  const attendee = await page.getByLabel("Name", { exact: true }).inputValue();
+  await expect(page.getByRole("timer", { name: "Checkout time remaining" })).toHaveText(/^[45]:[0-5][0-9]$/);
+  await page.clock.install();
+  await page.clock.fastForward(301000);
+  await expect(page.getByRole("dialog", { name: "Timer expired" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toHaveCount(0);
+  await page.clock.setSystemTime(new Date());
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(attendee);
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  // Exercise server-side expiry for subsequent attempts without advancing the
+  // browser clock ahead of the fixture server a second time.
+  await request.post("http://127.0.0.1:54329/fixture", { data: { reservationExpired: true } });
+  await page.getByRole("button", { name: "Buy Now", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Timer expired" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Timer expired" })).toHaveCount(0);
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Phone number", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Email", { exact: true })).toHaveValue("");
+  const state = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+  expect(state.intents.every((pi: { status: string }) => pi.status === "canceled")).toBe(true);
+  await request.post("http://127.0.0.1:54329/fixture", { data: { reservationExpired: false } });
+  await fillTicket(page);
+  await expect(page.getByRole("button", { name: "Buy Now", exact: true })).toBeEnabled();
+  await request.post("http://127.0.0.1:54329/fixture", { data: { reservationExpired: true } });
+  await page.getByRole("button", { name: "Buy Now", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Timer expired" })).toBeVisible();
+  await page.getByRole("button", { name: "Close popup", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Timer expired" })).toHaveCount(0);
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("");
+});
