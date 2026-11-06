@@ -104,6 +104,12 @@ test("ticket CTA stays on page; styled $10 form initializes once and embeds Paym
     });
     expect(response.status()).toBe(200);
   }
+  await expect.poll(async () => {
+    const emailState = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+    return emailState.orders[0]?.email_sent;
+  }).toBe(true);
+  const emailState = await (await request.get("http://127.0.0.1:54329/ticket-state")).json();
+  expect(emailState.orders[0].email_claim_count).toBe(1);
   await expect(page.locator('[aria-current="step"]')).toContainText("Ticket ready");
   await captureState(page, info, "ticket-ready-overlay");
   releaseNavigation();

@@ -217,6 +217,41 @@ createServer(async (req, res) => {
     }
     return res.end(JSON.stringify("fulfilled"));
   }
+  if (req.url === "/rest/v1/rpc/claim_ticket_email") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    const p = JSON.parse(body);
+    const o = [...orders.values()].find((o) => o.order_id === p.p_order_id && o.payment_intent_id === p.p_intent_id);
+    if (!o || o.status !== "paid" || !o.ticket_token || o.email_attempted) return res.end("null");
+    o.email_attempted = true;
+    o.email_claim_count = (o.email_claim_count ?? 0) + 1;
+    return res.end(
+      JSON.stringify({
+        recipient: o.submitted_email,
+        ticket_token: o.ticket_token,
+        ticket_code: o.ticket_code,
+        event_name: "LOCAL ONLY — Ticket Event",
+        event_date: "2026-12-30",
+        starts_at: "2026-12-31T01:00:00Z",
+        ends_at: "2026-12-31T04:00:00Z",
+        timezone: "America/New_York",
+        venue_name: "Local Test Venue",
+        venue_address: "LOCAL ONLY",
+        ticket_type: "General Admission",
+        amount_cents: o.amount_cents,
+        currency: o.currency,
+      }),
+    );
+  }
+  if (req.url === "/rest/v1/rpc/mark_ticket_email_sent") {
+    let body = req.fixtureBody ?? "";
+    if (!req.fixtureBody) for await (const chunk of req) body += chunk;
+    const p = JSON.parse(body);
+    const o = [...orders.values()].find((o) => o.order_id === p.p_order_id);
+    if (!o?.email_attempted) return res.end("false");
+    o.email_sent = true;
+    return res.end("true");
+  }
   if (req.url === "/rest/v1/rpc/get_ticket_purchase") {
     let body = "";
     for await (const chunk of req) body += chunk;

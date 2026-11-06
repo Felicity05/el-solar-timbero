@@ -73,7 +73,10 @@ export async function mockAdmin(req, res) {
   }
   if (req.url.endsWith("/mark_ticket_email_sent")) {
     const ticket = complimentary.get(body.p_order_id);
-    if (!ticket) return send(false);
+    if (!ticket) {
+      req.fixtureBody = raw;
+      return false; // Paid ticket emails belong to the purchase fixture.
+    }
     ticket.sent = true;
     return send(true);
   }
