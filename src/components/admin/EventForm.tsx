@@ -146,7 +146,7 @@ export default function EventForm({ detail, now, options }: { detail?: AdminDeta
             <input name="ticket_capacity" type="number" min="1" max="1000000" step="1" defaultValue={event?.ticket_capacity ?? ""} className={controlClassName} />
           </label>
           <p className="text-sm">
-            Leave blank for unlimited tickets. Paid and complimentary tickets share this limit. Unpaid checkouts reserve a place for 15 minutes; a place is released only after Stripe cancellation is
+            Leave blank for unlimited tickets. Paid and complimentary tickets share this limit. Unpaid checkouts reserve a place for 5 minutes; a place is released only after Stripe cancellation is
             confirmed.
           </p>
           <div className="grid gap-5 md:grid-cols-2">

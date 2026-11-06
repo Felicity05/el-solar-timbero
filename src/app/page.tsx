@@ -1,6 +1,6 @@
 import { ticketReturnUrl } from "@/lib/tickets/config";
 import TicketResult from "@/components/tickets/TicketResult";
-import { initializeTicket, checkTicketSales } from "./ticket-actions";
+import { initializeTicket, checkTicketSales, cancelTicketCheckout } from "./ticket-actions";
 import TicketPurchaseForm from "@/components/tickets/TicketPurchaseForm";
 import TicketCta from "@/components/tickets/TicketCta";
 import BrandPanel from "@/components/event/BrandPanel";
@@ -59,6 +59,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         slug={event.slug}
         event={event}
         initializeAction={initializeTicket.bind(null, event.slug)}
+        cancelAction={cancelTicketCheckout.bind(null, event.slug)}
         checkSalesAction={checkTicketSales.bind(null, event.slug)}
         priceCents={event.price_cents!}
         currency={event.currency!}

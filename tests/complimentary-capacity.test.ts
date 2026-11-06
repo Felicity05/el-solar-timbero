@@ -117,6 +117,8 @@ test("paid holds and free tickets share capacity; sold-out discovery remains vis
     const order = await init(db);
     assert.equal(order.status, "pending");
     assert.ok(order.reservation_expires_at);
+    const remaining = Date.parse(order.reservation_expires_at) - Date.now();
+    assert.ok(remaining > 290000 && remaining <= 300000, `Expected a five-minute hold, got ${remaining}ms`);
     assert.equal((await init(db, "+12025550113")).status, "capacity_full");
     assert.equal((await gift(db, event, "+12025550114")).status, "capacity_full");
     assert.equal((await db.query("select * from public.contacts")).rows.length, 2, "no unused contacts created for rejected sold-out requests");
@@ -255,6 +257,29 @@ test("scheduled is distinct from immediate publication and becomes publicly visi
     assert.ok(visible);
     assert.equal(visible.open, false);
     assert.equal(visible.sales_not_started, true);
+  } finally {
+    await db.close();
+  }
+});
+
+test("explicit checkout cancellation requires its capability and attempt, releases once and permits a fresh purchase on the same order", async () => {
+  const { db, event } = await setup(1);
+  try {
+    const order = await init(db);
+    await rpc(db, "public.attach_ticket_payment_intent($1,$2,'pi_cancel',0)", [order.order_id, hash]);
+    assert.equal(await rpc(db, "public.get_ticket_checkout_for_cancellation('capacity-test',$1)", ["b".repeat(64)]), null);
+    assert.equal(await rpc(db, "public.cancel_ticket_checkout('capacity-test',$1,0,'pi_cancel')", ["b".repeat(64)]), false);
+    assert.equal(await rpc(db, "public.cancel_ticket_checkout('capacity-test',$1,99,'pi_cancel')", [hash]), false);
+    assert.deepEqual(
+      await Promise.all([rpc(db, "public.cancel_ticket_checkout('capacity-test',$1,0,'pi_cancel')", [hash]), rpc(db, "public.cancel_ticket_checkout('capacity-test',$1,0,'pi_cancel')", [hash])]),
+      [true, true],
+    );
+    assert.equal(await rpc(db, "public.event_ticket_allocated($1)", [event]), 0);
+    const next = await init(db);
+    assert.equal(next.order_id, order.order_id);
+    assert.equal(next.payment_attempt, 1);
+    assert.equal(await rpc(db, "public.cancel_ticket_checkout('capacity-test',$1,0,'pi_cancel')", [hash]), false);
+    assert.equal((await db.query("select * from public.orders")).rows.length, 1);
   } finally {
     await db.close();
   }

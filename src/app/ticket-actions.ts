@@ -80,3 +80,14 @@ export async function checkTicketSales(slug: string, credential?: string): Promi
     return "unavailable";
   }
 }
+
+export async function cancelTicketCheckout(eventSlug: string, credential: string): Promise<"canceled" | "paid" | "processing" | "error"> {
+  if (!accessSchema.safeParse(credential).success) return "error";
+  try {
+    const { cancelCheckout } = await import("@/lib/tickets/reservations");
+    return await cancelCheckout(eventSlug, credential);
+  } catch (error) {
+    ticketFailure("checkout.cancel", error);
+    return "error";
+  }
+}

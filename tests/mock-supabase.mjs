@@ -89,6 +89,24 @@ createServer(async (req, res) => {
     }
     return res.end(JSON.stringify([...intents.values()].find((pi) => req.url.endsWith(pi.id))));
   }
+  if (["/rest/v1/rpc/get_ticket_checkout_for_cancellation", "/rest/v1/rpc/cancel_ticket_checkout"].includes(req.url)) {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    const args = JSON.parse(body);
+    const o = [...orders.values()].find((o) => o.access === args.p_access_hash);
+    if (req.url.endsWith("get_ticket_checkout_for_cancellation")) {
+      let response = o ? { ...o, payment_attempt_started_at: new Date().toISOString() } : null;
+      if (o?.status === "paid") response = { status: "paid" };
+      else if (o?.canceled) response = { status: "canceled" };
+      return res.end(JSON.stringify(response));
+    }
+    const pi = [...intents.values()].find((pi) => pi.id === args.p_canceled_intent_id);
+    if (!o || pi?.status !== "canceled" || o.status !== "pending" || o.payment_attempt !== args.p_expected_attempt) return res.end("false");
+    o.canceled = true;
+    o.payment_intent_id = null;
+    o.payment_attempt++;
+    return res.end("true");
+  }
   if (req.url === "/rest/v1/rpc/check_ticket_reservation") {
     if (fixture.reservationExpired) return res.end(JSON.stringify("expired"));
     return res.end(JSON.stringify(fixture.salesClosed || fixture.ticketClosed ? "closed" : "open"));
@@ -142,6 +160,10 @@ createServer(async (req, res) => {
       };
       orders.set(p.p_phone, o);
     }
+    if (o.canceled) {
+      o.canceled = false;
+      o.access = p.p_access_hash;
+    }
     if (o.status === "pending" && o.access === p.p_access_hash) {
       o.submitted_name = p.p_name;
       o.submitted_email = p.p_email;
@@ -150,6 +172,7 @@ createServer(async (req, res) => {
     return res.end(
       JSON.stringify({
         ...o,
+        reservation_expires_at: fixture.reservationMs ? new Date(Date.now() + fixture.reservationMs).toISOString() : null,
         status: !fixture.checking && o.access === p.p_access_hash ? "pending" : "recovery_required",
       }),
     );

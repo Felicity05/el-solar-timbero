@@ -38,3 +38,20 @@ export async function cleanupExpiredReservations(slug: string) {
     ticketFailure("reservation.cleanup", error);
   }
 }
+
+export async function cancelCheckout(slug: string, credential: string): Promise<"canceled" | "paid" | "processing"> {
+  const { accessHash } = await import("./server");
+  const args = { p_event_slug: slug, p_access_hash: accessHash(credential) };
+  const data = await ticketRpc("get_ticket_checkout_for_cancellation", args);
+  if (data === null || data?.status === "canceled") return "canceled";
+  if (data?.status === "paid") return "paid";
+  const order = reservationSchema.parse(data);
+  if (!order.payment_intent_id && Date.parse(order.payment_attempt_started_at) < Date.now() - 23 * 60 * 60 * 1000) throw new Error("Ambiguous old payment requires reconciliation");
+  const intent = await cancelUnpaidOrderPayment(order, getStripe());
+  if (intent.status === "succeeded") return "paid";
+  if (intent.status === "processing") return "processing";
+  if (intent.status !== "canceled") throw new Error("Stripe cancellation not confirmed");
+  const released = await ticketRpc("cancel_ticket_checkout", { ...args, p_expected_attempt: order.payment_attempt, p_canceled_intent_id: intent.id });
+  if (released !== true) throw new Error("Cancellation changed concurrently; check payment status");
+  return "canceled";
+}
